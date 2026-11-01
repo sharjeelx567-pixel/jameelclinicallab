@@ -1,0 +1,18 @@
+rules_version = '2';
+
+// JAMEEL CLINICAL LABORATORY — Firestore security rules
+//
+// The browser NEVER reads or writes Firestore directly. All access goes through
+// the NestJS backend, which uses the Firebase Admin SDK (Admin SDK bypasses these
+// rules) and enforces authentication, role permissions and business rules.
+//
+// Therefore every client request is denied by default — including for signed-in
+// users. This removes the whole class of "client-side rule bypass" risks for
+// patient data, results, payments and audit logs.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

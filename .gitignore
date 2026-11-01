@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Builds
+dist/
+.next/
+.next-*/
+out/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+
+# Environment & secrets — NEVER commit
+.env
+.env.*
+!.env.example
+*service-account*.json
+*serviceAccount*.json
+firebase-adminsdk-*.json
+
+# Machine bridge local data
+machine-bridge/data/
+
+# Logs / OS
+*.log
+.DS_Store
+Thumbs.db
+test-results/
+playwright-report/
+
+# Firebase CLI
+firebase/.firebase/
+
+# Backend credentials
+backend/secrets/

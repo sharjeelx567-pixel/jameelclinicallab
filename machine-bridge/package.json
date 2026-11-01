@@ -1,0 +1,36 @@
+{
+  "name": "jcl-machine-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "JAMEEL CLINICAL LABORATORY — on-premise analyzer bridge (ASTM / HL7 over TCP or serial)",
+  "license": "UNLICENSED",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/index.js",
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
+    "test": "jest"
+  },
+  "optionalDependencies": {
+    "serialport": "^13.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.30.0",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.15.0",
+    "eslint": "^9.30.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.4.0",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.40.0"
+  },
+  "jest": {
+    "moduleFileExtensions": ["js", "json", "ts"],
+    "rootDir": ".",
+    "testRegex": "test/.*\\.spec\\.ts$",
+    "transform": { "^.+\\.ts$": "ts-jest" },
+    "testEnvironment": "node"
+  }
+}

@@ -1,0 +1,11 @@
+rules_version = '2';
+
+// Patient attachments and branding are uploaded/downloaded ONLY by the backend
+// (Admin SDK). No direct client access; no public URLs.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

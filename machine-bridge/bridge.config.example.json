@@ -1,0 +1,29 @@
+{
+  "$comment": "Copy to bridge.config.json. The 'analyzerId' must match an analyzer registered in the LIS (Analyzers page). Protocol and connection settings MUST come from the exact BIOELAB model's interface documentation — do not guess.",
+  "heartbeatSeconds": 30,
+  "analyzers": [
+    {
+      "analyzerId": "analyzer-demo-1",
+      "name": "BIOELAB (DEMO simulator)",
+      "mode": "demo",
+      "protocol": "astm",
+      "connector": { "type": "demo", "intervalSeconds": 60 }
+    },
+    {
+      "analyzerId": "REPLACE-WITH-LIS-ANALYZER-ID",
+      "name": "BIOELAB — model to be confirmed",
+      "mode": "live",
+      "enabled": false,
+      "protocol": "astm",
+      "connector": { "type": "tcp-server", "host": "0.0.0.0", "port": 5000 }
+    },
+    {
+      "analyzerId": "REPLACE-WITH-LIS-ANALYZER-ID-2",
+      "name": "Serial analyzer example",
+      "mode": "live",
+      "enabled": false,
+      "protocol": "astm",
+      "connector": { "type": "serial", "path": "COM3", "baudRate": 9600, "dataBits": 8, "parity": "none", "stopBits": 1 }
+    }
+  ]
+}

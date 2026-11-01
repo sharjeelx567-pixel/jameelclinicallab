@@ -1,0 +1,123 @@
+/*
+ * ═══════════════════════════════════════════════════════════════════════════
+ *  JAMEEL CLINICAL LABORATORY — THEME TOKENS  (edit this file to re-brand)
+ * ═══════════════════════════════════════════════════════════════════════════
+ *  • Colours are HSL triplets ("H S% L%") so Tailwind can add opacity:
+ *      bg-primary/20, text-highlight, border-glass …
+ *  • Fonts are chosen in src/theme/fonts.ts (one line to change).
+ *  • Default light/dark mode is set in src/theme/config.ts.
+ *  • Semantic colours (success / warning / destructive / info) carry clinical
+ *    meaning (flags, statuses) — keep them clearly distinguishable.
+ */
+
+:root {
+  /* ── Brand ─────────────────────────────────────────────────────────────── */
+  --brand-1: 199 95% 48%;          /* primary blue  */
+  --brand-2: 186 85% 42%;          /* clinical teal */
+  --brand-3: 258 80% 62%;          /* violet glow (decorative only) */
+  --highlight: 24 95% 55%;          /* warm accent (callouts, active chips) */
+  --highlight-foreground: 0 0% 100%;
+
+  /* ── Surfaces (LIGHT) ──────────────────────────────────────────────────── */
+  --background: 216 45% 97%;
+  --foreground: 224 45% 12%;
+  --card: 0 0% 100%;
+  --card-foreground: 224 45% 12%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 224 45% 12%;
+  --primary: var(--brand-1);
+  --primary-foreground: 0 0% 100%;
+  --primary-soft: 200 90% 95%;
+  --secondary: 216 35% 94%;
+  --secondary-foreground: 224 40% 20%;
+  --muted: 216 35% 95%;
+  --muted-foreground: 220 15% 42%;
+  --accent: 200 70% 95%;
+  --accent-foreground: 205 85% 28%;
+  --border: 216 30% 88%;
+  --input: 216 28% 84%;
+  --ring: var(--brand-1);
+
+  /* ── Semantic (clinical meaning) ───────────────────────────────────────── */
+  --destructive: 0 72% 48%;
+  --destructive-foreground: 0 0% 100%;
+  --destructive-soft: 0 86% 96%;
+  --success: 152 62% 34%;
+  --success-soft: 145 60% 93%;
+  --warning: 32 92% 40%;
+  --warning-soft: 43 96% 91%;
+  --info: 217 85% 48%;
+  --info-soft: 214 95% 95%;
+
+  /* ── Sidebar ───────────────────────────────────────────────────────────── */
+  --sidebar: 224 55% 9%;
+  --sidebar-foreground: 210 40% 94%;
+  --sidebar-muted: 218 20% 66%;
+  --sidebar-active: var(--brand-1);
+
+  /* ── Glass & depth ─────────────────────────────────────────────────────── */
+  --glass-bg: 0 0% 100% / 0.72;
+  --glass-border: 216 40% 80% / 0.55;
+  --glass-highlight: 0 0% 100% / 0.9;
+  --glass-blur: 18px;
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.04), 0 8px 24px -12px rgb(15 23 42 / 0.12);
+  --shadow-elevated: 0 12px 40px -12px rgb(15 23 42 / 0.25);
+  --glow-primary: 0 0 0 1px hsl(var(--brand-1) / 0.25), 0 8px 30px -6px hsl(var(--brand-1) / 0.35);
+
+  /* ── Background art ────────────────────────────────────────────────────── */
+  --bg-orb-1: var(--brand-1);
+  --bg-orb-2: var(--brand-3);
+  --bg-orb-3: var(--brand-2);
+  --bg-orb-opacity: 0.18;
+  --bg-grid-opacity: 0.35;
+
+  /* ── Shape & motion ────────────────────────────────────────────────────── */
+  --radius: 0.9rem;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration: 220ms;
+  --header-height: 4rem;
+}
+
+.dark {
+  /* ── Surfaces (DARK — default) ─────────────────────────────────────────── */
+  --background: 228 62% 4%;
+  --foreground: 214 45% 96%;
+  --card: 226 45% 9%;
+  --card-foreground: 214 45% 96%;
+  --popover: 226 48% 8%;
+  --popover-foreground: 214 45% 96%;
+  --primary: 199 95% 58%;
+  --primary-foreground: 226 60% 6%;
+  --primary-soft: 205 70% 16%;
+  --secondary: 224 35% 15%;
+  --secondary-foreground: 214 40% 92%;
+  --muted: 224 35% 13%;
+  --muted-foreground: 218 22% 68%;
+  --accent: 210 60% 16%;
+  --accent-foreground: 199 90% 80%;
+  --border: 224 32% 18%;
+  --input: 224 30% 22%;
+  --ring: 199 95% 58%;
+
+  --destructive: 0 80% 62%;
+  --destructive-soft: 0 55% 16%;
+  --success: 152 60% 52%;
+  --success-soft: 152 45% 13%;
+  --warning: 36 95% 60%;
+  --warning-soft: 32 55% 14%;
+  --info: 213 95% 68%;
+  --info-soft: 216 50% 16%;
+
+  --sidebar: 228 55% 6%;
+  --sidebar-foreground: 214 45% 94%;
+  --sidebar-muted: 218 20% 62%;
+
+  --glass-bg: 226 50% 12% / 0.55;
+  --glass-border: 210 60% 85% / 0.09;
+  --glass-highlight: 210 80% 90% / 0.06;
+  --shadow-card: 0 1px 0 hsl(210 80% 90% / 0.04) inset, 0 20px 40px -24px rgb(0 0 0 / 0.7);
+  --shadow-elevated: 0 30px 60px -20px rgb(0 0 0 / 0.75);
+
+  --bg-orb-opacity: 0.55;
+  --bg-grid-opacity: 0.5;
+}
