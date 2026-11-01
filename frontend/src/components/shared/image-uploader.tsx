@@ -13,7 +13,7 @@ import { mediaService } from '@/services/admin.service';
 import type { MediaAsset, MediaCategory, MediaConfig, MediaRef } from '@/types';
 
 const ACCEPT = ['image/png', 'image/jpeg', 'image/webp'];
-const FALLBACK_MAX: Record<MediaCategory, number> = { lab_logo: 2, lab_gallery: 5, staff_profile: 2, doctor_profile: 2, website_illustration: 5 };
+const FALLBACK_MAX: Record<MediaCategory, number> = { lab_logo: 2, lab_gallery: 4, staff_profile: 2, doctor_profile: 2, website_illustration: 4 };
 
 let configPromise: Promise<MediaConfig> | null = null;
 /** Media configuration from the server (is Cloudinary set up, size limits). Cached per page load. */

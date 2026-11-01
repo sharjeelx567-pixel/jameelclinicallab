@@ -15,6 +15,10 @@ const EnvSchema = z
     FIREBASE_STORAGE_BUCKET: z.string().optional(),
     FIREBASE_CLIENT_EMAIL: z.string().optional(),
     FIREBASE_PRIVATE_KEY: z.string().optional(),
+    /** Whole service-account JSON in one variable (for hosts without files, e.g. Vercel). */
+    FIREBASE_SERVICE_ACCOUNT: z.string().optional(),
+    /** Shared secret Vercel Cron sends as "Authorization: Bearer <CRON_SECRET>". */
+    CRON_SECRET: z.string().optional(),
     BRIDGE_TOKEN_HASHES: z.string().default(''),
     REPORT_VERIFY_BASE_URL: z.string().default('http://localhost:3000/verify'),
     RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(300),

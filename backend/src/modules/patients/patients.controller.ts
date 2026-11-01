@@ -70,7 +70,7 @@ export class PatientsController {
   @Post(':id/attachments')
   @RequirePermissions('patients.write')
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024, files: 1 } }))
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 4 * 1024 * 1024, files: 1 } }))
   attach(@Param('id') id: string, @UploadedFile() file: UploadedBinary | undefined, @CurrentUser() user: AuthUser) {
     return this.patients.addAttachment(id, file, user);
   }

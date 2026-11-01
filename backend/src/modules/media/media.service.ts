@@ -32,10 +32,10 @@ interface CategoryRule {
  */
 export const MEDIA_CATEGORIES: Record<MediaCategory, CategoryRule> = {
   lab_logo: { label: 'Laboratory logo', folder: 'laboratory/logo', maxBytes: 2 * MB, single: 'global', permission: 'settings.write' },
-  lab_gallery: { label: 'Laboratory gallery', folder: 'laboratory/gallery', maxBytes: 5 * MB, single: false, permission: 'settings.write' },
+  lab_gallery: { label: 'Laboratory gallery', folder: 'laboratory/gallery', maxBytes: 4 * MB, single: false, permission: 'settings.write' },
   staff_profile: { label: 'Staff profile photo', folder: 'staff/profiles', maxBytes: 2 * MB, single: 'owner', owner: 'user', permission: 'users.manage' },
   doctor_profile: { label: 'Doctor profile photo', folder: 'doctors/profiles', maxBytes: 2 * MB, single: 'owner', owner: 'doctor', permission: 'doctors.write' },
-  website_illustration: { label: 'Website illustration', folder: 'website/illustrations', maxBytes: 5 * MB, single: false, permission: 'settings.write' },
+  website_illustration: { label: 'Website illustration', folder: 'website/illustrations', maxBytes: 4 * MB, single: false, permission: 'settings.write' },
 };
 export const MEDIA_CATEGORY_IDS = Object.keys(MEDIA_CATEGORIES) as [MediaCategory, ...MediaCategory[]];
 export const MAX_MEDIA_BYTES = Math.max(...Object.values(MEDIA_CATEGORIES).map((c) => c.maxBytes));

@@ -1,11 +1,13 @@
-import { Controller, Get, Injectable, Logger, Module, OnModuleDestroy, OnModuleInit, Param, Patch, Post, Query } from '@nestjs/common';
+import { Controller, Get, Headers, Injectable, Logger, Module, OnModuleDestroy, OnModuleInit, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import type { InventoryItemDoc, InventoryTransactionDoc } from '../../common/entities';
 import { notFound, unprocessable } from '../../common/errors';
 import { AuthUser, toActor } from '../../common/types';
+import { getEnv } from '../../config/env';
 import { C, DataStore, WhereClause } from '../../database/data-store';
-import { ApiZodBody, CurrentUser, RequirePermissions, ZodBody } from '../../decorators';
+import { ApiZodBody, CurrentUser, Public, RequirePermissions, ZodBody } from '../../decorators';
 import { buildSearchTokens, diff, isoDate, patchOf, money, normalizeSearch, optionalText, requiredText, round2 } from '../../utils';
 import { AuditService } from '../audit-logs/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -54,7 +56,8 @@ export class InventoryService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   onModuleInit() {
-    if (process.env.NODE_ENV === 'test') return;
+    // Serverless (Vercel) instances sleep between requests: the scan runs from Vercel Cron instead (GET /inventory/expiry-scan).
+    if (process.env.NODE_ENV === 'test' || process.env.VERCEL) return;
     // Twice-daily expiry scan; results surface as role-aware notifications.
     this.timer = setInterval(() => void this.expiryScan().catch((e: Error) => this.logger.error(`Expiry scan failed: ${e.message}`)), 12 * 3600_000);
     this.timer.unref();
@@ -198,6 +201,18 @@ export class InventoryService implements OnModuleInit, OnModuleDestroy {
 @Controller('inventory')
 export class InventoryController {
   constructor(private readonly inventory: InventoryService) {}
+
+  /** Called by Vercel Cron with "Authorization: Bearer <CRON_SECRET>". Disabled unless CRON_SECRET is set. */
+  @Public()
+  @Get('expiry-scan')
+  async expiryScanCron(@Headers('authorization') authorization?: string) {
+    const secret = getEnv().CRON_SECRET;
+    const given = Buffer.from(authorization ?? '');
+    const expected = Buffer.from(`Bearer ${secret ?? ''}`);
+    if (!secret || given.length !== expected.length || !timingSafeEqual(given, expected)) throw notFound('Route');
+    await this.inventory.expiryScan();
+    return { ok: true };
+  }
 
   @Get('items')
   @RequirePermissions('inventory.read')

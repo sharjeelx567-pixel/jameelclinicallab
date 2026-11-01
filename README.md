@@ -37,7 +37,7 @@ Sign in with any seeded **DEMO** role account. A yellow banner marks every page 
 
 The dev seed creates demo staff, the test *catalogue structure* (categories, a few tests with parameter names and units) and one DEMO analyzer. It deliberately creates **no patients or results** and **no reference ranges or prices**. Ranges must be entered by the laboratory and approved by a qualified professional.
 
-For production with Firebase, see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+For production with Firebase, see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). To deploy frontend **and** backend on Vercel, see [docs/DEPLOY_VERCEL.md](docs/DEPLOY_VERCEL.md).
 
 ## Implementation status
 
@@ -85,6 +85,7 @@ cd frontend       && npm run test:responsive
 - [Analyzer integration checklist](docs/ANALYZER_INTEGRATION.md)
 - [Backup & recovery](docs/BACKUP_AND_RECOVERY.md)
 - [Deployment & Firebase setup](docs/DEPLOYMENT.md)
+- [Deploying on Vercel](docs/DEPLOY_VERCEL.md)
 - [Administrator guide](docs/ADMIN_GUIDE.md)
 - [Testing](docs/TESTING.md)
 - [Images on Cloudinary](docs/IMAGES_CLOUDINARY.md)

@@ -37,7 +37,8 @@ export async function createApp(options: { logger?: boolean } = {}): Promise<INe
     SwaggerModule.setup('api/docs', app, SwaggerModule.createDocument(app, config));
   }
 
-  const db = await checkDatabase(app.get(DataStore));
+  // Serverless cold starts skip this round trip (it adds seconds); GET /health/database is still available.
+  const db = process.env.VERCEL ? { persistent: true, ok: true, emulator: false, projectId: env.FIREBASE_PROJECT_ID, latencyMs: 0, error: undefined } : await checkDatabase(app.get(DataStore));
   const log = new Logger('Database');
   if (!db.persistent) log.warn('⚠ IN-MEMORY data store — records are NOT saved and disappear when the server stops. Set DATA_BACKEND=firestore.');
   else if (db.ok) log.log(`✓ Firestore ${db.emulator ? 'EMULATOR' : 'project'} "${db.projectId}" reachable (write + read-back ${db.latencyMs} ms)`);

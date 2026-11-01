@@ -5,10 +5,10 @@ Cloudinary (free plan) stores and delivers **non-sensitive images only**:
 | Category (API) | Cloudinary folder | Who can upload / replace / delete | Limit |
 |---|---|---|---|
 | `lab_logo` (one) | `laboratory/logo` | `settings.write` | 2 MB |
-| `lab_gallery` | `laboratory/gallery` | `settings.write` | 5 MB |
+| `lab_gallery` | `laboratory/gallery` | `settings.write` | 4 MB |
 | `staff_profile` (one per person) | `staff/profiles` | `users.manage`, or the staff member for their own photo | 2 MB |
 | `doctor_profile` (one per doctor) | `doctors/profiles` | `doctors.write` | 2 MB |
-| `website_illustration` | `website/illustrations` | `settings.write` | 5 MB |
+| `website_illustration` | `website/illustrations` | `settings.write` | 4 MB |
 
 Allowed types: PNG, JPEG and WebP, checked from the **file's bytes**, not its name.
 

@@ -1,9 +1,22 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { App, cert, getApps, initializeApp, applicationDefault } from 'firebase-admin/app';
+import { App, applicationDefault, cert, getApps, initializeApp, type ServiceAccount } from 'firebase-admin/app';
 import { Auth, getAuth } from 'firebase-admin/auth';
 import { Firestore, getFirestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import { getEnv } from '../config/env';
+
+/** Accepts the service-account JSON as-is or base64-encoded (some dashboards mangle newlines). */
+function parseServiceAccount(raw: string): ServiceAccount {
+  const text = raw.trim().startsWith('{') ? raw : Buffer.from(raw, 'base64').toString('utf8');
+  let json: { project_id?: string; client_email?: string; private_key?: string };
+  try {
+    json = JSON.parse(text);
+  } catch {
+    throw new Error('FIREBASE_SERVICE_ACCOUNT is not valid JSON (paste the whole key file, or its base64)');
+  }
+  if (!json.client_email || !json.private_key) throw new Error('FIREBASE_SERVICE_ACCOUNT is missing client_email / private_key');
+  return { projectId: json.project_id, clientEmail: json.client_email, privateKey: json.private_key.replace(/\\n/g, '\n') };
+}
 
 /**
  * The ONLY place Firebase Admin credentials are used. Never import this from
@@ -21,8 +34,10 @@ export class FirebaseService {
     if (existing) return (this.app = existing);
 
     const env = getEnv();
-    const credential =
-      env.FIREBASE_CLIENT_EMAIL && env.FIREBASE_PRIVATE_KEY
+    const serviceAccount = env.FIREBASE_SERVICE_ACCOUNT ? parseServiceAccount(env.FIREBASE_SERVICE_ACCOUNT) : null;
+    const credential = serviceAccount
+      ? cert(serviceAccount)
+      : env.FIREBASE_CLIENT_EMAIL && env.FIREBASE_PRIVATE_KEY
         ? cert({
             projectId: env.FIREBASE_PROJECT_ID,
             clientEmail: env.FIREBASE_CLIENT_EMAIL,

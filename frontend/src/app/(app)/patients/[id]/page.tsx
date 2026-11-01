@@ -136,7 +136,7 @@ export default function PatientProfilePage() {
                             const f = e.target.files?.[0];
                             e.target.value = '';
                             if (!f) return;
-                            if (f.size > 5 * 1024 * 1024) return toast.error('File must be 5 MB or smaller');
+                            if (f.size > 4 * 1024 * 1024) return toast.error('File must be 4 MB or smaller');
                             try {
                               await patientsService.attach(p.id, f);
                               toast.success('Attachment uploaded');
@@ -158,7 +158,7 @@ export default function PatientProfilePage() {
                         ))}
                       </ul>
                     ) : (
-                      <p className="text-sm text-muted-foreground">No photograph or documents attached. PNG, JPEG or PDF up to 5 MB.</p>
+                      <p className="text-sm text-muted-foreground">No photograph or documents attached. PNG, JPEG or PDF up to 4 MB.</p>
                     )}
                   </CardContent>
                 </Card>
