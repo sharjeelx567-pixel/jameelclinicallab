@@ -2,6 +2,7 @@ import { INestApplication, Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import type { Express, RequestHandler } from 'express';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { getEnv } from './config/env';
@@ -18,6 +19,13 @@ export async function createApp(options: { logger?: boolean } = {}): Promise<INe
   app.set('trust proxy', 1);
   app.setGlobalPrefix('api/v1', { exclude: ['health', 'health/database'] });
   app.use(helmet());
+  // Friendly answer for the bare service addresses (people open these in a browser to "check the API").
+  const server = app.getHttpAdapter().getInstance() as Express;
+  const info: RequestHandler = (_req, res) => {
+    res.json({ success: true, data: { service: 'JAMEEL CLINICAL LABORATORY API', status: 'ok', health: '/health', database: '/health/database', api: '/api/v1/...' } });
+  };
+  server.get('/', info);
+  server.get('/api/v1', info);
   app.useBodyParser('json', { limit: '1mb' });
   app.enableCors({
     origin: env.CORS_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean),
