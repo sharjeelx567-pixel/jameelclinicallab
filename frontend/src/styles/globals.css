@@ -111,7 +111,7 @@
     background: #fff !important;
     color: #0f172a !important;
   }
-  .no-print, [data-no-print] {
+  .no-print, [data-no-print], [data-sonner-toaster] {
     display: none !important;
   }
   .print-area {

@@ -120,7 +120,7 @@ export default function RegisterAndBillPage() {
     );
     orderIdem.reset();
     toast.success(`Registered — ${patient.mrNumber} · ${order.orderNumber}`);
-    router.push(`/billing/invoice/${order.id}?print=1`);
+    router.push(`/print/bill/${order.id}?auto=1`);
   };
 
   /** Patient saved but the order failed: keep using that patient so a retry never registers them twice. */

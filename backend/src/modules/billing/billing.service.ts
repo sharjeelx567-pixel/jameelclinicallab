@@ -177,7 +177,7 @@ export class BillingService {
     if (!order) throw notFound('Order');
     const [patient, payments, settings, catalog] = await Promise.all([
       this.store.get<PatientDoc>(C.patients, order.patientId),
-      this.store.query<PaymentDoc>(C.payments, { where: [{ field: 'orderId', op: '==', value: orderId }], orderBy: { field: 'recordedAt' } }),
+      this.store.query<PaymentDoc>(C.payments, { where: [{ field: 'orderId', op: '==', value: orderId }], orderBy: { field: 'recordedAt', direction: 'desc' } }),
       this.settings.get(),
       this.store.get<CatalogIndexDoc>(C.catalogIndex, 'main'),
     ]);
@@ -199,7 +199,7 @@ export class BillingService {
         return { testCode: i.testCode, testName: i.testName, amount: i.unitPrice, reportDue };
       }),
       billing: order.billing,
-      payments: payments.items,
+      payments: [...payments.items].reverse(),
     };
   }
 }
