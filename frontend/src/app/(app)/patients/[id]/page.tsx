@@ -4,6 +4,7 @@ import { Archive, ArchiveRestore, ClipboardList, FileText, Paperclip, Pencil, Pl
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import * as React from 'react';
+import { PrintBillButton } from '@/components/billing/print-bill-button';
 import { toast } from 'sonner';
 import { Barcode } from '@/components/shared/codes';
 import { ConfirmDialog } from '@/components/shared/dialogs';
@@ -70,6 +71,7 @@ export default function PatientProfilePage() {
           actions={
             <>
               {can('orders.create') && !archived && <Button asChild><Link href={`/orders/new?patientId=${p.id}`}><Plus /> New order</Link></Button>}
+              <PrintBillButton patientId={p.id} size="default" label="Print latest bill" />
               {can('patients.write') && <Button variant="outline" onClick={() => setEditing(true)}><Pencil /> Edit</Button>}
               <Button variant="outline" onClick={() => window.print()} title="Patient registration card with MR number and barcode"><Printer /> Print patient card</Button>
               {can('patients.archive') && (
@@ -181,6 +183,7 @@ export default function PatientProfilePage() {
                       <span className="tabular text-sm">{formatMoney(o.billing.total)}</span>
                       {o.billing.balance > 0 && <Badge tone="danger">Due {formatMoney(o.billing.balance)}</Badge>}
                       <StatusBadge map={ORDER_STATUS} value={o.status} />
+                      {o.status !== 'cancelled' && <PrintBillButton orderId={o.id} label="Bill" />}
                     </div>
                   </Link>
                 ))}

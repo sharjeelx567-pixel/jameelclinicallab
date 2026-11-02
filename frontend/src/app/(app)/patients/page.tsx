@@ -1,10 +1,11 @@
 'use client';
 
 import type { ColumnDef } from '@tanstack/react-table';
-import { Search, UserPlus, Users } from 'lucide-react';
+import { Search, UserPlus } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import * as React from 'react';
+import { PrintBillButton } from '@/components/billing/print-bill-button';
 import { DataTable } from '@/components/shared/data-table';
 import { AsyncBoundary, PageHeader } from '@/components/shared/states';
 import { Button } from '@/components/ui/button';
@@ -32,6 +33,7 @@ const columns: ColumnDef<Patient, unknown>[] = [
   { accessorKey: 'mobile', header: 'Mobile', cell: ({ getValue }) => <span className="tabular">{String(getValue())}</span> },
   { accessorKey: 'cnic', header: 'CNIC', cell: ({ getValue }) => <span className="tabular text-muted-foreground">{(getValue() as string) ?? '—'}</span> },
   { accessorKey: 'createdAt', header: 'Registered', cell: ({ getValue }) => formatDate(getValue() as string) },
+  { id: 'bill', header: '', cell: ({ row }) => <PrintBillButton patientId={row.original.id} /> },
 ];
 
 function PatientsList() {
@@ -101,7 +103,7 @@ function PatientsList() {
                   <p className="text-xs text-muted-foreground">{p.mrNumber} · {p.ageYears ?? '—'}Y {titleCase(p.gender)}</p>
                   <p className="mt-1 text-xs text-muted-foreground">{p.mobile}</p>
                 </div>
-                <Users className="size-4 shrink-0 text-muted-foreground" />
+                <PrintBillButton patientId={p.id} label="Bill" />
               </div>
             )}
           />
