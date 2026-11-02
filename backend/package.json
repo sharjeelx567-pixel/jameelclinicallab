@@ -16,7 +16,8 @@
     "test:e2e": "jest --config test/jest-e2e.json --runInBand",
     "test:e2e:firestore": "cross-env E2E_DATA_BACKEND=firestore FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 jest --config test/jest-e2e.json --runInBand",
     "test:all": "npm run test && npm run test:e2e",
-    "test:cloudinary": "ts-node-dev --transpile-only src/scripts/cloudinary-smoke.ts"
+    "test:cloudinary": "ts-node-dev --transpile-only src/scripts/cloudinary-smoke.ts",
+    "import:rates": "ts-node-dev --transpile-only src/scripts/import-rate-list.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.0",

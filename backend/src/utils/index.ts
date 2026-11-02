@@ -176,3 +176,12 @@ export function ageInYears(dob: string, at = new Date()): number {
   if (m < 0 || (m === 0 && at.getUTCDate() < birth.getUTCDate())) age--;
   return Math.max(0, age);
 }
+
+/** Runs fn over items with at most `limit` calls in flight (keeps bulk Firestore writes fast but bounded). */
+export async function mapLimit<T>(items: T[], limit: number, fn: (item: T) => Promise<unknown>): Promise<void> {
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) await fn(items[next++]);
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+}

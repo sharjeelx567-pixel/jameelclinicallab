@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { z } from 'zod';
-import type { OrderDoc, PatientDoc, PaymentDoc } from '../../common/entities';
+import type { CatalogIndexDoc, OrderDoc, PatientDoc, PaymentDoc } from '../../common/entities';
 import { notFound, unprocessable } from '../../common/errors';
 import { AuthUser, toActor } from '../../common/types';
 import { getEnv } from '../../config/env';
@@ -175,17 +175,29 @@ export class BillingService {
   async invoice(orderId: string) {
     const order = await this.store.get<OrderDoc>(C.orders, orderId);
     if (!order) throw notFound('Order');
-    const [patient, payments, settings] = await Promise.all([
+    const [patient, payments, settings, catalog] = await Promise.all([
       this.store.get<PatientDoc>(C.patients, order.patientId),
       this.store.query<PaymentDoc>(C.payments, { where: [{ field: 'orderId', op: '==', value: orderId }], orderBy: { field: 'recordedAt' } }),
       this.settings.get(),
+      this.store.get<CatalogIndexDoc>(C.catalogIndex, 'main'),
     ]);
+    const tat = new Map((catalog?.tests ?? []).map((t) => [t.id, t.turnaroundHours]));
+    const centre = patient?.collectionCenterId ? settings.collectionCenters.find((c) => c.id === patient.collectionCenterId)?.name : undefined;
+    const branch = patient?.branchId ? settings.branches.find((b) => b.id === patient.branchId)?.name : undefined;
     return {
       invoiceNumber: order.orderNumber.replace('ORD', 'INV'),
-      lab: { name: settings.name, tagline: settings.tagline, address: settings.address, phone: settings.phone, currency: settings.billing.currency },
-      order: { id: order.id, orderNumber: order.orderNumber, createdAt: order.createdAt, status: order.status, doctorName: order.doctorName },
-      patient: patient && { name: patient.name, mrNumber: patient.mrNumber, mobile: patient.mobile },
-      lines: order.items.map((i) => ({ testCode: i.testCode, testName: i.testName, amount: i.unitPrice })),
+      lab: { name: settings.name, tagline: settings.tagline, address: settings.address, phone: settings.phone, email: settings.email, currency: settings.billing.currency },
+      order: { id: order.id, orderNumber: order.orderNumber, createdAt: order.createdAt, status: order.status, doctorName: order.doctorName, createdByName: order.createdBy?.name },
+      patient: patient && {
+        name: patient.name, mrNumber: patient.mrNumber, mobile: patient.mobile, ageYears: patient.ageYears, gender: patient.gender,
+        guardianName: patient.guardianName, guardianRelation: patient.guardianRelation, centre: centre ?? branch,
+      },
+      lines: order.items.map((i) => {
+        const hours = tat.get(i.testId);
+        // Expected report time = registration time + the test's turnaround (from the rate list).
+        const reportDue = hours !== undefined ? new Date(Date.parse(order.createdAt) + hours * 3600_000).toISOString() : undefined;
+        return { testCode: i.testCode, testName: i.testName, amount: i.unitPrice, reportDue };
+      }),
       billing: order.billing,
       payments: payments.items,
     };

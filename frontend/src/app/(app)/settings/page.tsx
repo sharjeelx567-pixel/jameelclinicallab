@@ -3,6 +3,7 @@
 import { Plus, Save, ShieldCheck, Trash2 } from 'lucide-react';
 import * as React from 'react';
 import { toast } from 'sonner';
+import { PriceList } from '@/components/settings/price-list';
 import { ImageUploader, MediaGallery } from '@/components/shared/image-uploader';
 import { ErrorState, LoadingRows, PageHeader } from '@/components/shared/states';
 import { Button } from '@/components/ui/button';
@@ -56,6 +57,7 @@ export default function SettingsPage() {
       <Tabs defaultValue="lab">
         <TabsList>
           <TabsTrigger value="lab">Laboratory</TabsTrigger>
+          <TabsTrigger value="prices">Price list</TabsTrigger>
           <TabsTrigger value="branches">Branches & centres</TabsTrigger>
           <TabsTrigger value="clinical">Results & billing</TabsTrigger>
           <TabsTrigger value="print">Reports & labels</TabsTrigger>
@@ -84,6 +86,10 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
           <SaveBar />
+        </TabsContent>
+
+        <TabsContent value="prices" className="space-y-6">
+          <PriceList editable={can('tests.write')} />
         </TabsContent>
 
         <TabsContent value="branches" className="space-y-6">

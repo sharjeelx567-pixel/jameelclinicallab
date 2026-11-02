@@ -29,41 +29,59 @@ export async function renderReportPdf(report: ReportDoc, verifyUrl: string, logo
   const bottomLimit = () => doc.page.height - doc.page.margins.bottom - 10;
 
   const header = () => {
-    const top = 36;
+    const top = 30;
+    // Logo (contains the laboratory name) on the left; verification QR on the right.
     let textX = left;
     if (logo) {
       try {
-        doc.image(logo, left, top, { fit: [52, 52] });
-        textX = left + 62;
+        doc.image(logo, left, top, { fit: [78, 74] });
+        textX = left + 90;
       } catch {
         /* unreadable logo: fall back to text-only header */
       }
     }
-    doc.fillColor(COLORS.brand).font('Helvetica-Bold').fontSize(17).text(s.lab.name, textX, top, { width: width - (textX - left) });
-    doc.fillColor(COLORS.muted).font('Helvetica-Oblique').fontSize(9).text(s.lab.tagline, textX, doc.y + 1);
-    doc.font('Helvetica').fontSize(8).text([s.lab.address, s.lab.phone, s.lab.email].filter(Boolean).join('  •  '), textX, doc.y + 2, { width: width - (textX - left) });
-    const y = Math.max(doc.y, top + 54) + 6;
+    if (!logo) doc.fillColor(COLORS.brand).font('Helvetica-Bold').fontSize(17).text(s.lab.name, textX, top, { width: width - 170 });
+    doc.fillColor(COLORS.brand).font('Helvetica-Bold').fontSize(13).text('LABORATORY REPORT', textX, top + (logo ? 14 : 22), { width: width - 170 - (textX - left) });
+    doc.fillColor(COLORS.muted).font('Helvetica-Oblique').fontSize(8.5).text(s.lab.tagline, textX, doc.y + 1, { width: width - 170 - (textX - left) });
+    doc.font('Helvetica').fontSize(7.5).text([s.lab.address, s.lab.phone, s.lab.email].filter(Boolean).join('  •  '), textX, doc.y + 2, { width: width - 170 - (textX - left) });
+    doc.image(qr, left + width - 58, top, { width: 58 });
+    doc.fillColor(COLORS.muted).font('Helvetica-Bold').fontSize(6.5).text('SCAN TO VERIFY', left + width - 78, top + 61, { width: 78, align: 'center' });
+    const y = top + 78;
     doc.moveTo(left, y).lineTo(left + width, y).lineWidth(1.2).strokeColor(COLORS.brand).stroke();
-    doc.y = y + 8;
+    doc.y = y + 7;
 
-    // Patient block
-    const rows: Array<[string, string, string, string]> = [
-      ['Patient', s.patient.name, 'MR No.', s.patient.mrNumber],
-      ['Age / Gender', `${s.patient.age ?? '—'} / ${s.patient.gender[0].toUpperCase()}${s.patient.gender.slice(1)}`, 'Order No.', s.orderNumber],
-      ['Referred by', s.doctorName ?? 'Self', 'Report No.', `${report.reportNumber} (v${report.version})`],
-      ['Sample(s)', s.samples.map((x) => `${x.sampleNumber} ${x.sampleType}`).join(', '), 'Collected', fmt(s.samples[0]?.collectedAt)],
-      ['Report date', fmt(report.generatedAt), 'Status', report.status.toUpperCase()],
+    // Patient block (two columns, like the laboratory's reference layout)
+    const gender = `${s.patient.gender[0].toUpperCase()}${s.patient.gender.slice(1)}`;
+    const leftRows: Array<[string, string]> = [
+      ['Patient No.', s.patient.mrNumber],
+      ['Patient Name', s.patient.name],
+      ['Father/Husband', s.patient.guardian ?? '—'],
+      ['Age / Gender', `${s.patient.age ?? '—'} / ${gender}`],
+      ['Phone', s.patient.mobile ?? '—'],
+    ];
+    const rightRows: Array<[string, string]> = [
+      ['Lab No.', s.orderNumber],
+      ['Advised by', s.doctorName ?? 'Self'],
+      ['Registered at', s.centre ?? s.lab.name],
+      ['Registered on', fmt(s.registeredAt ?? s.samples[0]?.collectedAt)],
+      ['Reported on', `${fmt(report.generatedAt)}  (${report.status.toUpperCase()})`],
     ];
     const blockTop = doc.y;
-    doc.rect(left, blockTop, width, rows.length * 15 + 8).fillColor(COLORS.soft).fill();
-    rows.forEach((r, i) => {
-      const y2 = blockTop + 6 + i * 15;
-      doc.fillColor(COLORS.muted).font('Helvetica').fontSize(8).text(r[0], left + 8, y2, { width: 70 });
-      doc.fillColor(COLORS.ink).font('Helvetica-Bold').fontSize(8.5).text(r[1], left + 80, y2, { width: width / 2 - 90, height: 12, ellipsis: true });
-      doc.fillColor(COLORS.muted).font('Helvetica').fontSize(8).text(r[2], left + width / 2 + 10, y2, { width: 60 });
-      doc.fillColor(COLORS.ink).font('Helvetica-Bold').fontSize(8.5).text(r[3], left + width / 2 + 72, y2, { width: width / 2 - 80, height: 12, ellipsis: true });
+    const rowH = 13.5;
+    doc.rect(left, blockTop, width, leftRows.length * rowH + 8).fillColor(COLORS.soft).fill();
+    const half = width / 2;
+    leftRows.forEach(([k, v], i) => {
+      const y2 = blockTop + 5 + i * rowH;
+      doc.fillColor(COLORS.muted).font('Helvetica').fontSize(8).text(k, left + 8, y2, { width: 72 });
+      doc.fillColor(COLORS.ink).font('Helvetica-Bold').fontSize(8.5).text(v, left + 84, y2, { width: half - 92, height: 12, ellipsis: true });
     });
-    doc.y = blockTop + rows.length * 15 + 16;
+    rightRows.forEach(([k, v], i) => {
+      const y2 = blockTop + 5 + i * rowH;
+      doc.fillColor(COLORS.muted).font('Helvetica').fontSize(8).text(k, left + half + 8, y2, { width: 68 });
+      doc.fillColor(COLORS.ink).font('Helvetica-Bold').fontSize(8.5).text(v, left + half + 80, y2, { width: half - 88, height: 12, ellipsis: true });
+    });
+    doc.fillColor(COLORS.muted).font('Helvetica').fontSize(7).text(`Report ${report.reportNumber}  v${report.version}  •  Sample(s): ${s.samples.map((x) => `${x.sampleNumber} ${x.sampleType}`).join(', ')}`, left + 8, blockTop + leftRows.length * rowH + 10, { width: width - 16, height: 10, ellipsis: true });
+    doc.y = blockTop + leftRows.length * rowH + 26;
   };
 
   const cols = [
@@ -100,8 +118,19 @@ export async function renderReportPdf(report: ReportDoc, verifyUrl: string, logo
 
   header();
 
-  for (const t of s.tests) {
+  // Group by department (category), as on the laboratory's printed reports.
+  const tests = [...s.tests].sort((a, b) => a.category.localeCompare(b.category));
+  let department = '';
+  for (const t of tests) {
     currentTest = t.testName;
+    if (t.category !== department) {
+      department = t.category;
+      ensure(80);
+      doc.fillColor(COLORS.ink).font('Helvetica-Bold').fontSize(12).text(`DEPARTMENT OF ${department.toUpperCase()}`, left, doc.y + 2);
+      const ly = doc.y + 2;
+      doc.moveTo(left, ly).lineTo(left + width, ly).lineWidth(0.6).strokeColor(COLORS.ink).stroke();
+      doc.y = ly + 6;
+    }
     ensure(60);
     doc.fillColor(COLORS.brand).font('Helvetica-Bold').fontSize(10.5).text(t.testName.toUpperCase(), left, doc.y, { continued: true });
     doc.fillColor(COLORS.muted).font('Helvetica').fontSize(8).text(`   ${t.category}${t.amended ? '   • AMENDED' : ''}`);
@@ -143,16 +172,11 @@ export async function renderReportPdf(report: ReportDoc, verifyUrl: string, logo
     doc.moveDown(1);
   }
 
-  // Signature block
-  ensure(90);
+  // Approval block
+  ensure(50);
   doc.moveDown(1);
-  const sigY = doc.y + 30;
-  doc.moveTo(left, sigY).lineTo(left + 170, sigY).lineWidth(0.6).strokeColor(COLORS.muted).stroke();
-  doc.moveTo(left + width - 170, sigY).lineTo(left + width, sigY).stroke();
-  doc.fillColor(COLORS.ink).font('Helvetica-Bold').fontSize(8.5).text(s.technicians.join(', ') || '—', left, sigY + 4, { width: 170 });
-  doc.font('Helvetica').fillColor(COLORS.muted).fontSize(7.5).text('Laboratory Technologist', left, doc.y);
-  doc.fillColor(COLORS.ink).font('Helvetica-Bold').fontSize(8.5).text(s.verifiedBy.join(', ') || '—', left + width - 170, sigY + 4, { width: 170 });
-  doc.font('Helvetica').fillColor(COLORS.muted).fontSize(7.5).text('Pathologist / Authorised Signatory', left + width - 170, doc.y, { width: 170 });
+  doc.fillColor(COLORS.muted).font('Helvetica').fontSize(8).text(`Performed by: ${s.technicians.join(', ') || '—'}`, left, doc.y, { width: width / 2 });
+  doc.fillColor(COLORS.ink).font('Helvetica-Bold').fontSize(9).text(`Approved by: ${s.verifiedBy.join(', ') || '—'}`, left + width / 2, doc.y - 10, { width: width / 2, align: 'right' });
 
   // Footer + watermark on every page
   const range = doc.bufferedPageRange();
@@ -167,12 +191,15 @@ export async function renderReportPdf(report: ReportDoc, verifyUrl: string, logo
         .text(report.status.toUpperCase(), 0, doc.page.height / 2 - 40, { width: doc.page.width, align: 'center', lineBreak: false });
       doc.restore().opacity(1);
     }
-    doc.moveTo(left, fy).lineTo(left + width, fy).lineWidth(0.5).strokeColor(COLORS.line).stroke();
-    doc.image(qr, left + width - 40, fy + 6, { width: 40 });
+    doc.rect(left, fy, width, 13).fillColor('#e2e8f0').fill();
+    doc.fillColor(COLORS.ink).font('Helvetica-Bold').fontSize(7.5)
+      .text('Electronically verified report. Results should be interpreted by a qualified clinician in the clinical context.', left, fy + 3, { width, align: 'center', lineBreak: false });
     doc.fillColor(COLORS.muted).font('Helvetica').fontSize(7)
-      .text(`Verify: ${verifyUrl}/${report.verificationCode}  •  Code ${report.verificationCode}`, left, fy + 8, { width: width - 50, lineBreak: false })
-      .text(s.lab.reportFooter ?? 'This report relates only to the sample(s) received. Results should be interpreted by a qualified clinician.', left, fy + 18, { width: width - 50, height: 18, ellipsis: true })
-      .text(`Page ${i + 1} of ${range.count}`, left, fy + 38, { width: width - 50, lineBreak: false });
+      .text(s.lab.reportFooter ?? 'This report relates only to the sample(s) received.', left, fy + 17, { width: width - 90, height: 18, ellipsis: true })
+      .text(`Verify: ${verifyUrl}/${report.verificationCode}  •  Code ${report.verificationCode}`, left, fy + 36, { width: width - 90, lineBreak: false });
+    doc.fillColor(COLORS.ink).font('Helvetica-Bold').fontSize(7.5)
+      .text([s.lab.address, s.lab.phone].filter(Boolean).join('  •  ') || s.lab.name, left, fy + 46, { width: width - 90, lineBreak: false });
+    doc.fillColor(COLORS.muted).font('Helvetica').fontSize(7).text(`Page ${i + 1} of ${range.count}`, left + width - 80, fy + 46, { width: 80, align: 'right', lineBreak: false });
   }
 
   doc.end();

@@ -155,6 +155,8 @@ export interface TestDoc extends Timestamps {
   collectionInstructions?: string;
   processingInstructions?: string;
   turnaroundHours: number;
+  /** Reporting time as printed on the rate list, e.g. "AFTER THREE DAYS". */
+  reportingTime?: string;
   price: number;
   discountEligible: boolean;
   active: boolean;
@@ -336,9 +338,12 @@ export interface ReportDoc {
 
 export interface ReportSnapshot {
   lab: { name: string; tagline: string; address: string; phone: string; email: string; reportFooter?: string };
-  patient: { name: string; mrNumber: string; age?: string; gender: Gender };
+  patient: { name: string; mrNumber: string; age?: string; gender: Gender; guardian?: string; mobile?: string };
   doctorName?: string;
   orderNumber: string;
+  /** Collection centre / branch name and registration time (snapshots from v2 onward). */
+  centre?: string;
+  registeredAt?: string;
   samples: Array<{ sampleNumber: string; sampleType: string; collectedAt?: string }>;
   tests: Array<{
     resultId: string;
@@ -606,4 +611,12 @@ export interface MediaAssetDoc extends Timestamps {
   originalName: string;
   alt?: string;
   uploadedBy: AuditActor;
+}
+
+/** Compact, single-document view of the whole test catalogue (prices, samples, reporting times). */
+export interface CatalogIndexDoc {
+  id: 'main';
+  updatedAt: string;
+  categories: Array<{ id: string; name: string; sortOrder: number; active: boolean }>;
+  tests: Array<{ id: string; code: string; name: string; categoryId: string; price: number; sampleType: string; containerType?: string; turnaroundHours: number; reportingTime?: string; discountEligible: boolean; active: boolean }>;
 }

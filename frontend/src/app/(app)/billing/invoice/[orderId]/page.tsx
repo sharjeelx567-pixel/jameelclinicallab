@@ -1,79 +1,140 @@
 'use client';
 
-import { ArrowLeft, Printer } from 'lucide-react';
+import { ArrowLeft, FilePlus2, Printer } from 'lucide-react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
+import * as React from 'react';
 import { Barcode } from '@/components/shared/codes';
 import { LabLogoMark } from '@/components/shared/lab-logo';
 import { ErrorState, LoadingRows } from '@/components/shared/states';
 import { Button } from '@/components/ui/button';
 import { useApi } from '@/hooks/use-api';
-import { formatDateTime, formatMoney, titleCase } from '@/lib/utils';
+import { amountInWords } from '@/lib/amount-words';
+import { formatDateTime, titleCase } from '@/lib/utils';
 import { billingService } from '@/services/admin.service';
 
-export default function InvoicePage() {
+const money = (n: number) => new Intl.NumberFormat('en-PK', { maximumFractionDigits: 0 }).format(n);
+
+/** Patient bill (A4), laid out like the laboratory's printed bill. */
+export default function PatientBillPage() {
   const { orderId } = useParams<{ orderId: string }>();
+  const params = useSearchParams();
   const state = useApi(() => billingService.invoice(orderId), [orderId]);
+  const printed = React.useRef(false);
+
+  React.useEffect(() => {
+    // Opened straight after registration (?print=1): open the print dialog once the bill is on screen.
+    if (state.data && params.get('print') === '1' && !printed.current) {
+      printed.current = true;
+      const t = setTimeout(() => window.print(), 600);
+      return () => clearTimeout(t);
+    }
+  }, [state.data, params]);
+
   if (state.error) return <ErrorState error={state.error} onRetry={state.reload} />;
   if (!state.data) return <LoadingRows rows={8} />;
   const inv = state.data;
+  const p = inv.patient;
+  const b = inv.billing;
+  const toBePaid = b.total;
+  const paidNet = b.paid - b.refunded;
+  const relation = p?.guardianRelation && p.guardianRelation !== 'other' ? ` (${titleCase(p.guardianRelation)})` : '';
+  const Row = ({ k, v }: { k: string; v?: React.ReactNode }) => (
+    <div className="grid grid-cols-[7.5rem_1fr] gap-2 py-[1px]">
+      <span className="font-semibold">{k}</span>
+      <span className="font-bold uppercase">: {v || ''}</span>
+    </div>
+  );
+
   return (
     <div>
       <div className="no-print mb-4 flex flex-wrap items-center justify-between gap-2">
         <Link href={`/orders/${orderId}`} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4" /> Order {inv.order.orderNumber}</Link>
-        <Button onClick={() => window.print()}><Printer /> Print invoice</Button>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline"><Link href="/register"><FilePlus2 /> New registration</Link></Button>
+          <Button onClick={() => window.print()}><Printer /> Print bill</Button>
+        </div>
       </div>
       <div className="-mx-4 overflow-x-auto bg-muted/40 px-4 py-6 sm:mx-0 sm:rounded-xl print:m-0 print:bg-transparent print:p-0">
-        <article className="print-area mx-auto w-full max-w-[210mm] bg-white p-[10mm] text-[10pt] text-slate-900 shadow-elevated sm:p-[14mm]">
-          <header className="flex flex-wrap items-start justify-between gap-4 border-b-2 border-[#0d7f8e] pb-3">
-            <div className="flex items-center gap-3">
-              <LabLogoMark className="size-12" />
+        <article className="print-area mx-auto flex min-h-[270mm] w-full min-w-[180mm] max-w-[210mm] flex-col bg-white p-[10mm] text-[9.5pt] text-slate-900 shadow-elevated sm:p-[12mm]">
+          <header className="flex items-center justify-between gap-6 border-b-2 border-slate-800 pb-3">
+            <div className="flex items-center gap-4">
+              <LabLogoMark className="size-24" alt={inv.lab.name} />
               <div>
-                <p className="text-[14pt] font-bold tracking-wide text-[#0d7f8e]">{inv.lab.name}</p>
-                <p className="text-[9pt] italic text-slate-500">{inv.lab.tagline}</p>
-                <p className="text-[8pt] text-slate-600">{[inv.lab.address, inv.lab.phone].filter(Boolean).join(' • ')}</p>
+                <p className="text-[8.5pt] italic text-slate-600">{inv.lab.tagline}</p>
+                {inv.lab.address && <p className="text-[8.5pt] text-slate-700">{inv.lab.address}</p>}
+                <p className="text-[8.5pt] text-slate-700">{[inv.lab.phone, inv.lab.email].filter(Boolean).join(' • ')}</p>
               </div>
             </div>
-            <div className="text-right">
-              <p className="text-[13pt] font-semibold uppercase tracking-wider">Invoice</p>
-              <p className="font-mono text-[9pt]">{inv.invoiceNumber}</p>
-              <Barcode value={inv.order.orderNumber} height={26} width={1.1} fontSize={9} />
-            </div>
+            <p className="text-right text-[8pt] font-semibold uppercase tracking-wide text-slate-500">Keep this bill to collect your report</p>
           </header>
-          <section className="mt-4 grid grid-cols-2 gap-4 text-[9.5pt]">
-            <div>
-              <p className="text-[8pt] uppercase text-slate-500">Billed to</p>
-              <p className="font-semibold">{inv.patient?.name}</p>
-              <p>{inv.patient?.mrNumber} · {inv.patient?.mobile}</p>
+
+          <h1 className="my-3 text-center text-[14pt] font-bold tracking-wide">PATIENT BILL</h1>
+
+          <section className="grid grid-cols-2 border border-slate-800">
+            <div className="flex items-center gap-3 border-r border-slate-800 p-2">
+              <span className="text-[11pt] font-bold">Patient No:</span>
+              {p && <Barcode value={p.mrNumber} height={30} width={1.2} fontSize={11} />}
             </div>
-            <div className="text-right">
-              <p><span className="text-slate-500">Date:</span> {formatDateTime(inv.order.createdAt)}</p>
-              <p><span className="text-slate-500">Order:</span> {inv.order.orderNumber}</p>
-              <p><span className="text-slate-500">Referred by:</span> {inv.order.doctorName ?? 'Self'}</p>
+            <div className="flex items-center justify-end gap-3 p-2">
+              <span className="text-[11pt] font-bold">Lab No:</span>
+              <Barcode value={inv.order.orderNumber} height={30} width={1.2} fontSize={11} />
+            </div>
+            <div className="border-r border-t border-slate-800 p-2">
+              <Row k="Patient Name" v={p?.name} />
+              <Row k="Father/Husband" v={p?.guardianName ? `${p.guardianName}${relation}` : ''} />
+              <Row k="Age / Gender" v={p ? `${p.ageYears ?? '—'} years / ${titleCase(p.gender)}` : ''} />
+              <Row k="Phone" v={p?.mobile} />
+            </div>
+            <div className="border-t border-slate-800 p-2">
+              <Row k="Center" v={p?.centre ?? inv.lab.name} />
+              <Row k="Advised by" v={inv.order.doctorName ?? 'SELF'} />
+              <Row k="Registered at" v={inv.lab.name} />
+              <Row k="Requested on" v={formatDateTime(inv.order.createdAt)} />
             </div>
           </section>
-          <table className="mt-5 w-full border-collapse text-[9.5pt]">
-            <thead><tr className="border-y border-slate-300 text-left"><th className="py-2">Code</th><th>Description</th><th className="text-right">Amount ({inv.lab.currency})</th></tr></thead>
-            <tbody>{inv.lines.map((l) => <tr key={l.testCode} className="border-b border-slate-100"><td className="py-1.5 font-mono">{l.testCode}</td><td>{l.testName}</td><td className="text-right">{formatMoney(l.amount)}</td></tr>)}</tbody>
+
+          <table className="mt-3 w-full border-collapse text-[9.5pt]">
+            <thead>
+              <tr className="border-y-2 border-slate-800 text-left">
+                <th className="w-10 py-1.5 pl-1">Sr #</th>
+                <th className="py-1.5">Test Name</th>
+                <th className="w-48 py-1.5">Report Date/Time</th>
+                <th className="w-24 py-1.5 pr-1 text-right">Rate</th>
+              </tr>
+            </thead>
+            <tbody>
+              {inv.lines.map((l, i) => (
+                <tr key={`${l.testCode}-${i}`} className="border-b border-slate-200">
+                  <td className="py-1.5 pl-1 font-bold">{i + 1}</td>
+                  <td className="py-1.5 font-bold">{l.testName}</td>
+                  <td className="py-1.5 font-semibold">{l.reportDue ? formatDateTime(l.reportDue) : '—'}</td>
+                  <td className="py-1.5 pr-1 text-right font-semibold">{money(l.amount)}</td>
+                </tr>
+              ))}
+            </tbody>
           </table>
-          <div className="ml-auto mt-4 w-72 space-y-1 text-[9.5pt]">
-            <div className="flex justify-between"><span>Subtotal</span><span>{formatMoney(inv.billing.subtotal)}</span></div>
-            {inv.billing.collectionFee > 0 && <div className="flex justify-between"><span>Collection fee</span><span>{formatMoney(inv.billing.collectionFee)}</span></div>}
-            {inv.billing.discountAmount > 0 && <div className="flex justify-between"><span>Discount</span><span>−{formatMoney(inv.billing.discountAmount)}</span></div>}
-            <div className="flex justify-between border-t border-slate-300 pt-1 text-[11pt] font-bold"><span>Total</span><span>{formatMoney(inv.billing.total)}</span></div>
-            <div className="flex justify-between"><span>Paid</span><span>{formatMoney(inv.billing.paid)}</span></div>
-            {inv.billing.refunded > 0 && <div className="flex justify-between"><span>Refunded</span><span>−{formatMoney(inv.billing.refunded)}</span></div>}
-            <div className="flex justify-between font-semibold"><span>Balance due</span><span>{formatMoney(inv.billing.balance)}</span></div>
+
+          <section className="mt-3 grid grid-cols-[1fr_17rem] gap-6">
+            <div className="flex flex-col justify-between">
+              <p className="font-bold">Rupees: {amountInWords(toBePaid)}</p>
+              <p className="mt-6 text-[9pt]"><span className="font-semibold">Enter By:</span> <span className="ml-2 font-bold uppercase">{inv.order.createdByName ?? ''}</span></p>
+            </div>
+            <dl className="text-[9.5pt] [&>div]:flex [&>div]:justify-between [&>div]:border-b [&>div]:border-slate-200 [&>div]:py-1">
+              <div><dt className="font-bold">Total :</dt><dd className="font-bold">{money(b.subtotal + b.collectionFee)}</dd></div>
+              <div><dt className="font-bold">Discount :</dt><dd>{b.discountAmount ? money(b.discountAmount) : ''}</dd></div>
+              <div><dt className="font-bold">To be Paid :</dt><dd className="font-bold">{money(toBePaid)}</dd></div>
+              <div><dt className="font-bold">Paid :</dt><dd className="font-bold">{money(paidNet)}</dd></div>
+              <div className="!border-b-2 !border-slate-800"><dt className="font-bold">Balance :</dt><dd className="font-bold">{money(b.balance)}</dd></div>
+            </dl>
+          </section>
+
+          <p className="mt-4 flex items-center gap-2 text-[9pt]"><span className="inline-grid size-4 place-items-center border border-slate-800 text-[8pt]">✓</span> I allow the staff for phlebotomy procedure for mentioned lab investigation(s).</p>
+
+          <div className="mt-auto pt-8">
+            <p className="text-[8.5pt] text-slate-600">Reports are released on or after the report date shown above. Please bring this bill (Patient No. / Lab No.) when collecting reports.</p>
+            <p className="mt-2 border-t-2 border-slate-800 pt-1.5 text-center text-[9pt] font-bold">{[inv.lab.address || inv.lab.name, inv.lab.phone, inv.lab.email].filter(Boolean).join('    •    ')}</p>
           </div>
-          {inv.payments.length > 0 && (
-            <section className="mt-6">
-              <p className="mb-1 text-[8.5pt] font-semibold uppercase text-slate-500">Payments</p>
-              <table className="w-full text-[8.5pt]">
-                <tbody>{inv.payments.map((p) => <tr key={p.id} className="border-b border-slate-100"><td className="py-1 font-mono">{p.receiptNumber}</td><td>{titleCase(p.type)} · {titleCase(p.method)}</td><td>{formatDateTime(p.recordedAt)}</td><td className="text-right">{p.type === 'refund' ? '−' : ''}{formatMoney(p.amount)}</td></tr>)}</tbody>
-              </table>
-            </section>
-          )}
-          <p className="mt-8 border-t border-slate-200 pt-2 text-center text-[8pt] text-slate-500">Computer-generated invoice. Amounts are as recorded by the laboratory billing system.</p>
         </article>
       </div>
     </div>

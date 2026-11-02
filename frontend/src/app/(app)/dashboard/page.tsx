@@ -44,7 +44,7 @@ export default function DashboardPage() {
   const d = state.data;
 
   const quick = [
-    { href: '/patients/new', label: 'Register patient', icon: UserPlus, perm: 'patients.write' },
+    { href: '/register', label: 'Register & bill', icon: UserPlus, perm: 'orders.create' },
     { href: '/orders/new', label: 'New order', icon: Plus, perm: 'orders.create' },
     { href: '/samples', label: 'Collect samples', icon: TestTube, perm: 'samples.collect' },
     { href: '/results', label: 'Enter results', icon: FlaskConical, perm: 'results.enter' },
@@ -251,7 +251,7 @@ export default function DashboardPage() {
                 </CardHeader>
                 <CardContent>
                   {!d.recentPatients.length ? (
-                    <EmptyState icon={Users} title="No patients registered yet" action={can('patients.write') ? <Button asChild size="sm"><Link href="/patients/new">Register first patient</Link></Button> : undefined} />
+                    <EmptyState icon={Users} title="No patients registered yet" action={can('patients.write') ? <Button asChild size="sm"><Link href="/register">Register first patient</Link></Button> : undefined} />
                   ) : (
                     <ul className="divide-y">
                       {d.recentPatients.map((p) => (

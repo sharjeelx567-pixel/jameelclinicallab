@@ -1,10 +1,16 @@
-import { Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import { Controller, Get, Param, Patch, Post, Put } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { z } from 'zod';
 import type { AuthUser } from '../../common/types';
 import { ApiZodBody, ApiZodQuery, CurrentUser, RequirePermissions, ZodBody, ZodQuery } from '../../decorators';
 import { patchOf } from '../../utils';
+import { RateRow } from './rate-list';
 import { CategoryDto, TestDto, TestQuery, TestsService } from './tests.service';
+
+const PricesDto = z.object({
+  changes: z.array(z.object({ testId: z.string().min(1).max(64), price: z.number().min(0).max(10_000_000) })).min(1).max(2000),
+});
+const ImportDto = z.object({ rows: z.array(RateRow).min(1).max(3000), updateNames: z.boolean().default(false) });
 
 const PartialTest = patchOf(TestDto);
 const PartialCategory = patchOf(CategoryDto);
@@ -33,6 +39,28 @@ export class TestsController {
   @ApiZodBody(PartialCategory)
   updateCategory(@Param('id') id: string, @ZodBody(PartialCategory) dto: z.infer<typeof PartialCategory>, @CurrentUser() user: AuthUser) {
     return this.tests.updateCategory(id, dto, user);
+  }
+
+  /** Whole catalogue in one read — used by registration/billing and the price list. */
+  @Get('catalog')
+  @RequirePermissions('tests.read')
+  catalog() {
+    return this.tests.catalog();
+  }
+
+  @Put('prices')
+  @RequirePermissions('tests.write')
+  @ApiZodBody(PricesDto)
+  updatePrices(@ZodBody(PricesDto) dto: z.infer<typeof PricesDto>, @CurrentUser() user: AuthUser) {
+    return this.tests.updatePrices(dto.changes, user);
+  }
+
+  /** Import or refresh the rate list (CSV rows parsed by the client). Matched by test code. */
+  @Post('import')
+  @RequirePermissions('tests.write', 'settings.write')
+  @ApiZodBody(ImportDto)
+  importRateList(@ZodBody(ImportDto) dto: z.infer<typeof ImportDto>, @CurrentUser() user: AuthUser) {
+    return this.tests.importRateList(dto.rows, user, { updateNames: dto.updateNames });
   }
 
   @Get()

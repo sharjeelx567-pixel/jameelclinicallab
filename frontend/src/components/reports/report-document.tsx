@@ -22,7 +22,7 @@ export function ReportDocument({ report, verifyBase }: { report: Report; verifyB
 
       <header className="flex flex-wrap items-start justify-between gap-4 border-b-2 border-[#0d7f8e] pb-3">
         <div className="flex min-w-0 items-center gap-3">
-          <LabLogoMark className="size-12 shrink-0" />
+          <LabLogoMark className="size-20 shrink-0" alt={s.lab.name} />
           <div className="min-w-0">
             <h1 className="font-display text-[15pt] font-bold tracking-wide text-[#0d7f8e]">{s.lab.name}</h1>
             <p className="text-[8.5pt] italic text-slate-500">{s.lab.tagline}</p>
@@ -57,10 +57,13 @@ export function ReportDocument({ report, verifyBase }: { report: Report; verifyB
       </section>
 
       <section className="mt-4 space-y-5">
-        {s.tests.map((t) => (
+        {[...s.tests].sort((a, b) => a.category.localeCompare(b.category)).map((t, i, all) => (
           <div key={t.resultId} className="print-avoid-break">
+            {(i === 0 || all[i - 1].category !== t.category) && (
+              <h2 className="mb-2 mt-1 border-b border-slate-800 pb-0.5 text-[11.5pt] font-bold uppercase tracking-wide">Department of {t.category}</h2>
+            )}
             <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-200 pb-1">
-              <h2 className="text-[10.5pt] font-bold uppercase tracking-wide text-[#0d7f8e]">{t.testName}</h2>
+              <h3 className="text-[10.5pt] font-bold uppercase tracking-wide text-[#0d7f8e]">{t.testName}</h3>
               <span className="text-[7.5pt] text-slate-500">{t.category}{t.amended && <strong className="ml-2 text-sky-700">AMENDED</strong>}</span>
             </div>
             {t.status === 'pending' ? (

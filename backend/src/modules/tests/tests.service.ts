@@ -1,11 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { z } from 'zod';
-import type { ReferenceRange, TestCategoryDoc, TestDoc, TestParameter } from '../../common/entities';
+import type { CatalogIndexDoc, ReferenceRange, TestCategoryDoc, TestDoc, TestParameter } from '../../common/entities';
 import { badRequest, conflict, notFound } from '../../common/errors';
 import { AuthUser, toActor } from '../../common/types';
 import { C, DataStore, WhereClause } from '../../database/data-store';
-import { buildSearchTokens, diff, docId, money, normalizeSearch, optionalText, requiredText } from '../../utils';
+import { buildSearchTokens, diff, docId, mapLimit, money, normalizeSearch, optionalText, requiredText } from '../../utils';
 import { AuditService } from '../audit-logs/audit.service';
+import { containerFor, DEPARTMENTS, departmentFor, parametersFor, type RateRowInput, turnaroundHours } from './rate-list';
 
 const RangeDto = z
   .object({
@@ -47,6 +48,7 @@ export const TestDto = z.object({
   collectionInstructions: optionalText(1000),
   processingInstructions: optionalText(1000),
   turnaroundHours: z.number().min(0).max(24 * 60),
+  reportingTime: optionalText(60),
   price: money,
   discountEligible: z.boolean().default(true),
   active: z.boolean().default(true),
@@ -81,6 +83,7 @@ export class TestsService {
     const doc: TestCategoryDoc = { ...dto, id: this.store.newId() };
     await this.store.create(C.testCategories, doc.id, doc);
     await this.audit.record({ action: 'test_category.create', entity: 'testCategory', entityId: doc.id, actor: toActor(actor) });
+    await this.rebuildCatalog();
     return doc;
   }
 
@@ -90,6 +93,7 @@ export class TestsService {
     const next = { ...before, ...dto };
     await this.store.set(C.testCategories, id, next);
     await this.audit.record({ action: 'test_category.update', entity: 'testCategory', entityId: id, actor: toActor(actor), changes: diff(before, next) });
+    await this.rebuildCatalog();
     return next;
   }
 
@@ -150,6 +154,7 @@ export class TestsService {
     };
     await this.store.create(C.tests, doc.id, doc);
     await this.audit.record({ action: 'test.create', entity: 'test', entityId: doc.id, actor: toActor(actor), changes: { price: dto.price } });
+    await this.rebuildCatalog();
     return doc;
   }
 
@@ -167,7 +172,125 @@ export class TestsService {
     const changes = diff(before, next);
     if (changes.parameters) changes.parameters = { from: '(parameters)', to: '(parameters changed)' };
     await this.audit.record({ action: 'test.update', entity: 'test', entityId: id, actor: toActor(actor), changes });
+    await this.rebuildCatalog();
     return next;
+  }
+
+  // ─── Catalogue index (one document → registration & price list load with a single read) ──
+
+  async catalog(): Promise<CatalogIndexDoc> {
+    const doc = await this.store.get<CatalogIndexDoc>(C.catalogIndex, 'main');
+    return doc ?? this.rebuildCatalog();
+  }
+
+  /** Rebuilt after any test write. Reads every test once; writes are rare compared with reads. */
+  async rebuildCatalog(): Promise<CatalogIndexDoc> {
+    const [tests, categories] = await Promise.all([this.store.query<TestDoc>(C.tests, { orderBy: { field: 'name' } }), this.categories()]);
+    const doc: CatalogIndexDoc = {
+      id: 'main',
+      updatedAt: this.store.now(),
+      categories: categories.map((c) => ({ id: c.id, name: c.name, sortOrder: c.sortOrder, active: c.active })),
+      tests: tests.items.map((t) => ({
+        id: t.id, code: t.code, name: t.name, categoryId: t.categoryId, price: t.price, sampleType: t.sampleType,
+        ...(t.containerType ? { containerType: t.containerType } : {}),
+        turnaroundHours: t.turnaroundHours,
+        ...(t.reportingTime ? { reportingTime: t.reportingTime } : {}),
+        discountEligible: t.discountEligible, active: t.active,
+      })),
+    };
+    await this.store.set(C.catalogIndex, 'main', doc);
+    return doc;
+  }
+
+  /** Bulk price change from Settings → Price list. Only rows whose price actually changed are written. */
+  async updatePrices(changes: Array<{ testId: string; price: number }>, actor: AuthUser) {
+    const updated: Array<{ code: string; name: string; from: number; to: number }> = [];
+    await mapLimit(changes, 20, async ({ testId, price }) => {
+      const t = await this.store.get<TestDoc>(C.tests, testId);
+      if (!t) throw notFound(`Test ${testId}`);
+      if (t.price === price) return;
+      await this.store.update(C.tests, testId, { price, updatedAt: this.store.now() });
+      updated.push({ code: t.code, name: t.name, from: t.price, to: price });
+    });
+    if (updated.length) {
+      await this.audit.record({ action: 'test.prices_update', entity: 'test', entityId: 'bulk', actor: toActor(actor), changes: { count: updated.length, prices: updated.slice(0, 200) } });
+      await this.rebuildCatalog();
+    }
+    return { updated: updated.length };
+  }
+
+  /**
+   * Import / refresh the rate list. Tests are matched by code: existing tests get the
+   * new name, price, sample and reporting time (their parameters and approved ranges
+   * are untouched); new codes are created with a starting parameter structure and NO
+   * reference ranges. Imaging and cosmetic services are created inactive.
+   */
+  async importRateList(rows: RateRowInput[], actor: AuthUser, opts: { updateNames?: boolean } = {}) {
+    // Departments → categories (created once, matched by name).
+    const existingCats = await this.categories();
+    const catId = new Map<string, string>();
+    for (const d of DEPARTMENTS) {
+      const found = existingCats.find((c) => c.name.toLowerCase() === d.name.toLowerCase());
+      if (found) catId.set(d.key, found.id);
+      else {
+        const doc: TestCategoryDoc = { id: this.store.newId(), name: d.name, sortOrder: d.sortOrder, active: true };
+        await this.store.create(C.testCategories, doc.id, doc);
+        catId.set(d.key, doc.id);
+      }
+    }
+    const existing = (await this.store.query<TestDoc>(C.tests, {})).items;
+    const byCode = new Map(existing.map((t) => [t.code.toUpperCase(), t]));
+    const seen = new Set<string>();
+    let created = 0, updated = 0, unchanged = 0;
+    const now = this.store.now();
+
+    await mapLimit(rows, 20, async (row) => {
+      const code = row.code.toUpperCase();
+      if (seen.has(code)) return;
+      seen.add(code);
+      const dept = departmentFor(row.name);
+      const sampleType = row.sample && row.sample !== 'N/A' ? row.sample : 'Not applicable';
+      const tat = turnaroundHours(row.reportingTime);
+      const prev = byCode.get(code);
+      if (prev) {
+        const patch = {
+          price: row.price,
+          sampleType,
+          turnaroundHours: tat,
+          ...(row.reportingTime ? { reportingTime: row.reportingTime } : {}),
+          ...(opts.updateNames ? { name: row.name, searchTokens: buildSearchTokens(row.name, code) } : {}),
+        };
+        const changed = Object.entries(patch).some(([k, v]) => k !== 'searchTokens' && JSON.stringify((prev as unknown as Record<string, unknown>)[k]) !== JSON.stringify(v));
+        if (!changed) return void unchanged++;
+        await this.store.update(C.tests, prev.id, { ...patch, updatedAt: now });
+        return void updated++;
+      }
+      const container = containerFor(sampleType);
+      const doc: TestDoc = {
+        id: this.store.newId(),
+        name: row.name,
+        code,
+        categoryId: catId.get(dept.key)!,
+        sampleType,
+        ...(container ? { containerType: container } : {}),
+        turnaroundHours: tat,
+        ...(row.reportingTime ? { reportingTime: row.reportingTime } : {}),
+        price: row.price,
+        discountEligible: true,
+        active: !dept.service,
+        parameters: this.mergeParameters(parametersFor(row.name) as z.infer<typeof ParameterDto>[], []),
+        analyzerMappings: [],
+        searchTokens: buildSearchTokens(row.name, code),
+        createdAt: now,
+        updatedAt: now,
+      };
+      await this.store.create(C.tests, doc.id, doc);
+      created++;
+    });
+
+    await this.audit.record({ action: 'test.rate_list_import', entity: 'test', entityId: 'bulk', actor: toActor(actor), changes: { rows: rows.length, created, updated, unchanged } });
+    await this.rebuildCatalog();
+    return { rows: rows.length, created, updated, unchanged };
   }
 
   async approveRange(testId: string, parameterId: string, rangeId: string, actor: AuthUser): Promise<TestDoc> {

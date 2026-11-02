@@ -1,4 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { OrderDoc, PatientDoc, ReportDoc, ReportSnapshot, ResultDoc, SampleDoc, TestCategoryDoc, TestDoc } from '../../common/entities';
 import { conflict, notFound, unprocessable } from '../../common/errors';
 import { AuthUser, toActor } from '../../common/types';
@@ -11,6 +13,16 @@ import { SettingsService } from '../settings/settings.service';
 import { StorageService } from '../settings/storage.service';
 import { formatRange } from '../tests/reference-range';
 import { renderReportPdf } from './report-pdf';
+
+let cachedLogo: Buffer | null | undefined;
+/** Read once; works from src (ts-node) and dist, and on Vercel via vercel.json includeFiles. */
+function bundledLogo(): Buffer | undefined {
+  if (cachedLogo === undefined) {
+    const file = join(__dirname, '../../../assets/jcl-logo.png');
+    cachedLogo = existsSync(file) ? readFileSync(file) : null;
+  }
+  return cachedLogo ?? undefined;
+}
 
 @Injectable()
 export class ReportsService {
@@ -64,9 +76,18 @@ export class ReportsService {
 
       const snapshot: ReportSnapshot = {
         lab: { name: settings.name, tagline: settings.tagline, address: settings.address, phone: settings.phone, email: settings.email, reportFooter: settings.reportFooter },
-        patient: { name: patient.name, mrNumber: patient.mrNumber, age: patient.ageYears !== undefined ? `${patient.ageYears} Y` : undefined, gender: patient.gender },
+        patient: {
+          name: patient.name,
+          mrNumber: patient.mrNumber,
+          age: patient.ageYears !== undefined ? `${patient.ageYears} Y` : undefined,
+          gender: patient.gender,
+          ...(patient.guardianName ? { guardian: `${patient.guardianName}${patient.guardianRelation && patient.guardianRelation !== 'other' ? ` (${patient.guardianRelation})` : ''}` } : {}),
+          mobile: patient.mobile,
+        },
         doctorName: order.doctorName,
         orderNumber: order.orderNumber,
+        centre: settings.collectionCenters.find((c) => c.id === patient.collectionCenterId)?.name ?? settings.branches.find((b) => b.id === patient.branchId)?.name,
+        registeredAt: order.createdAt,
         samples: samples.filter((s) => s.status !== 'rejected').map((s) => ({ sampleNumber: s.sampleNumber, sampleType: s.sampleType, collectedAt: s.collectedAt })),
         tests: order.items.map((item) => {
           const r = results.find((x) => x.id === item.resultId);
@@ -167,6 +188,8 @@ export class ReportsService {
     } catch (err) {
       this.logger.warn(`Logo unavailable for report PDF: ${(err as Error).message}`);
     }
+    // Default: the laboratory logo shipped with the app (backend/assets/jcl-logo.png).
+    logo ??= bundledLogo();
     const buffer = await renderReportPdf(report, getEnv().REPORT_VERIFY_BASE_URL, logo);
     return { buffer, filename: `${report.reportNumber}-v${report.version}.pdf` };
   }

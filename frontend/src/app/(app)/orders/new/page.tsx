@@ -1,10 +1,10 @@
 'use client';
 
-import { Check, Search, UserPlus, X } from 'lucide-react';
-import Link from 'next/link';
+import { Check } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import * as React from 'react';
 import { toast } from 'sonner';
+import { PatientPicker } from '@/components/patients/patient-picker';
 import { PageHeader } from '@/components/shared/states';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,60 +13,14 @@ import { Checkbox, Field, Input, Select, Textarea } from '@/components/ui/form-c
 import { Skeleton } from '@/components/ui/misc';
 import { PAYMENT_METHODS } from '@/constants';
 import { useAuth } from '@/features/auth/auth-provider';
-import { useApi, useDebounced } from '@/hooks/use-api';
+import { useApi } from '@/hooks/use-api';
 import { useIdempotencyKey } from '@/hooks/use-idempotency-key';
 import { errorMessage } from '@/lib/api-client';
-import { cn, formatMoney, titleCase } from '@/lib/utils';
+import { cn, formatMoney } from '@/lib/utils';
 import { homeSamplingService } from '@/services/admin.service';
 import { catalogService, ordersService, type OrderQuote } from '@/services/lab.service';
 import { doctorsService, patientsService } from '@/services/patients.service';
 import type { Patient, PaymentMethod, Priority } from '@/types';
-
-function PatientPicker({ value, onChange }: { value: Patient | null; onChange: (p: Patient | null) => void }) {
-  const [q, setQ] = React.useState('');
-  const debounced = useDebounced(q.trim(), 300);
-  const results = useApi(debounced.length >= 2 ? () => patientsService.list({ q: debounced, limit: 8 }) : null, [debounced]);
-  if (value)
-    return (
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-primary-soft/40 p-3">
-        <div className="min-w-0">
-          <p className="font-medium">{value.name}</p>
-          <p className="text-xs text-muted-foreground">{value.mrNumber} · {value.ageYears ?? '—'}Y {titleCase(value.gender)} · {value.mobile}</p>
-        </div>
-        <Button variant="ghost" size="sm" onClick={() => onChange(null)}><X /> Change</Button>
-      </div>
-    );
-  return (
-    <div className="space-y-2">
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search MR number, name, mobile or CNIC" className="pl-9" aria-label="Find patient" autoFocus />
-      </div>
-      {results.loading && debounced.length >= 2 && <Skeleton className="h-12" />}
-      {results.data && (
-        <ul className="divide-y rounded-lg border">
-          {results.data.items.length === 0 && (
-            <li className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm text-muted-foreground">
-              No patient found.
-              <Button asChild size="sm" variant="outline"><Link href="/patients/new"><UserPlus /> Register new patient</Link></Button>
-            </li>
-          )}
-          {results.data.items.map((p) => (
-            <li key={p.id}>
-              <button type="button" onClick={() => onChange(p)} className="flex w-full items-center justify-between gap-2 p-3 text-left text-sm hover:bg-muted">
-                <span className="min-w-0">
-                  <span className="block break-words font-medium">{p.name}</span>
-                  <span className="block text-xs text-muted-foreground">{p.mrNumber} · {p.mobile}</span>
-                </span>
-                <span className="text-xs text-muted-foreground">{p.ageYears ?? '—'}Y {p.gender[0].toUpperCase()}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
 
 function NewOrderForm() {
   const router = useRouter();

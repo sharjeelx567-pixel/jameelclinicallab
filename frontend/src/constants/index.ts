@@ -1,5 +1,6 @@
 import {
   Activity,
+  ReceiptText,
   BarChart3,
   Beaker,
   Bell,
@@ -47,6 +48,7 @@ export const NAV: NavGroup[] = [
   {
     label: 'Front desk',
     items: [
+      { label: 'Register & bill', href: '/register', icon: ReceiptText, permission: 'orders.create' },
       { label: 'Patients', href: '/patients', icon: Users, permission: 'patients.read' },
       { label: 'Orders', href: '/orders', icon: ClipboardList, permission: 'orders.read' },
       { label: 'Home sampling', href: '/home-sampling', icon: Home, permission: 'homeSampling.read' },
@@ -85,7 +87,7 @@ export const NAV: NavGroup[] = [
 ];
 
 export const ROUTE_LABELS: Record<string, string> = {
-  dashboard: 'Dashboard', patients: 'Patients', new: 'New', orders: 'Orders', 'home-sampling': 'Home sampling', doctors: 'Doctors', samples: 'Samples',
+  dashboard: 'Dashboard', register: 'Register & bill', patients: 'Patients', new: 'New', orders: 'Orders', 'home-sampling': 'Home sampling', doctors: 'Doctors', samples: 'Samples',
   results: 'Result entry', verification: 'Verification', reports: 'Reports', analyzers: 'Analyzers', messages: 'Messages', tests: 'Test catalogue',
   billing: 'Billing', invoice: 'Invoice', panels: 'Insurance & panels', inventory: 'Inventory', analytics: 'Analytics', staff: 'Staff & roles',
   'audit-logs': 'Audit logs', notifications: 'Notifications', settings: 'Settings', profile: 'My profile',

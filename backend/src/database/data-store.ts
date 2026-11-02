@@ -88,5 +88,6 @@ export const C = {
   labelPrints: 'labelPrints',
   mediaAssets: 'mediaAssets',
   idempotencyKeys: 'idempotencyKeys',
+  catalogIndex: 'catalogIndex',
   systemHealth: 'systemHealth',
 } as const;

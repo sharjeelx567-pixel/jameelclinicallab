@@ -24,7 +24,38 @@ export const catalogService = {
   create: (input: unknown) => api.post<LabTest>('/tests', input),
   update: (id: string, input: unknown) => api.patch<LabTest>(`/tests/${id}`, input),
   approveRange: (testId: string, parameterId: string, rangeId: string) => api.post<LabTest>(`/tests/${testId}/parameters/${parameterId}/ranges/${rangeId}/approve`),
+  /** Whole catalogue (prices, samples, reporting times) in one request. */
+  index: () => api.get<CatalogIndex>('/tests/catalog'),
+  updatePrices: (changes: Array<{ testId: string; price: number }>) => api.put<{ updated: number }>('/tests/prices', { changes }),
+  importRateList: (rows: RateListRow[], updateNames = false) =>
+    api.post<{ rows: number; created: number; updated: number; unchanged: number }>('/tests/import', { rows, updateNames }),
 };
+
+export interface CatalogTest {
+  id: string;
+  code: string;
+  name: string;
+  categoryId: string;
+  price: number;
+  sampleType: string;
+  containerType?: string;
+  turnaroundHours: number;
+  reportingTime?: string;
+  discountEligible: boolean;
+  active: boolean;
+}
+export interface CatalogIndex {
+  updatedAt: string;
+  categories: Array<{ id: string; name: string; sortOrder: number; active: boolean }>;
+  tests: CatalogTest[];
+}
+export interface RateListRow {
+  code: string;
+  name: string;
+  price: number;
+  sample?: string;
+  reportingTime?: string;
+}
 
 export interface OrderQuote {
   lines: Array<{ testId: string; name: string; code: string; catalogPrice: number; unitPrice: number }>;

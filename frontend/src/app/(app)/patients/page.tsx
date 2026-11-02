@@ -65,7 +65,7 @@ function PatientsList() {
       <PageHeader
         title="Patients"
         description="Search by MR number, name, mobile number or CNIC."
-        actions={can('patients.write') && <Button asChild><Link href="/patients/new"><UserPlus /> Register patient</Link></Button>}
+        actions={can('patients.write') && <Button asChild><Link href="/register"><UserPlus /> Register & bill</Link></Button>}
       />
       <Card className="mb-4">
         <CardContent className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-[1fr_auto_auto]">
