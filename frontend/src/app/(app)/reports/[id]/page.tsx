@@ -30,14 +30,9 @@ export default function ReportPreviewPage() {
   if (!state.data) return <LoadingRows rows={10} />;
   const r = state.data;
 
+  // Prints on the separate print page (report only, with logo); that page records the print.
   const browserPrint = async () => {
-    try {
-      await reportsService.recordBrowserPrint(r.id); // reprint tracking happens server-side
-      window.print();
-      void state.reload();
-    } catch (err) {
-      toast.error(errorMessage(err));
-    }
+    window.open(`/print/report/${r.id}?auto=1`, '_blank', 'noopener');
   };
 
   const downloadPdf = async () => {

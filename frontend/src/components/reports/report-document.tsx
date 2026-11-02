@@ -56,7 +56,7 @@ export function ReportDocument({ report, verifyBase }: { report: Report; verifyB
         ))}
       </section>
 
-      <section className="mt-4 space-y-5">
+      <section className="mt-4 space-y-4">
         {[...s.tests].sort((a, b) => a.category.localeCompare(b.category)).map((t, i, all) => (
           <div key={t.resultId} className="print-avoid-break">
             {(i === 0 || all[i - 1].category !== t.category) && (
@@ -86,11 +86,11 @@ export function ReportDocument({ report, verifyBase }: { report: Report; verifyB
                         const abnormal = v.flag !== 'normal' && v.flag !== 'no_range';
                         return (
                           <tr key={`${v.parameterName}-${i}`} className="border-t border-slate-100 odd:bg-white even:bg-slate-50/60">
-                            <td className="py-1 pr-2">{v.parameterName}</td>
-                            <td className={cn('tabular py-1 pr-2', abnormal && 'font-bold', v.flag.includes('low') ? 'text-blue-700' : abnormal && 'text-red-700')}>{v.value}</td>
-                            <td className={cn('py-1 font-bold', v.flag.includes('low') ? 'text-blue-700' : 'text-red-700')}>{FLAG_META[v.flag]?.short}</td>
-                            <td className="py-1 pr-2 text-slate-600">{v.unit}</td>
-                            <td className="py-1 text-slate-600">{v.range || <span className="italic text-slate-400">Not established</span>}</td>
+                            <td className="py-[3px] pr-2">{v.parameterName}</td>
+                            <td className={cn('tabular py-[3px] pr-2', abnormal && 'font-bold', v.flag.includes('low') ? 'text-blue-700' : abnormal && 'text-red-700')}>{v.value}</td>
+                            <td className={cn('py-[3px] font-bold', v.flag.includes('low') ? 'text-blue-700' : 'text-red-700')}>{FLAG_META[v.flag]?.short}</td>
+                            <td className="py-[3px] pr-2 text-slate-600">{v.unit}</td>
+                            <td className="py-[3px] text-slate-600">{v.range || <span className="italic text-slate-400">Not established</span>}</td>
                           </tr>
                         );
                       })}
@@ -108,20 +108,20 @@ export function ReportDocument({ report, verifyBase }: { report: Report; verifyB
 
       <p className="mt-4 text-[7.5pt] text-slate-500">Flags: H = high, L = low, HH / LL = critical, A = abnormal. Values are interpreted against reference ranges approved by the laboratory.</p>
 
-      <section className="print-avoid-break mt-10 grid grid-cols-2 gap-10 text-[8.5pt]">
+      <section className="print-avoid-break mt-6 grid grid-cols-2 gap-10 text-[8.5pt]">
         <div>
-          <div className="h-10 border-b border-slate-400" />
+          <div className="h-7 border-b border-slate-400" />
           <p className="mt-1 font-semibold">{s.technicians.join(', ') || '—'}</p>
           <p className="text-slate-500">Laboratory Technologist</p>
         </div>
         <div className="text-right">
-          <div className="h-10 border-b border-slate-400" />
+          <div className="h-7 border-b border-slate-400" />
           <p className="mt-1 font-semibold">{s.verifiedBy.join(', ') || '—'}</p>
           <p className="text-slate-500">Pathologist / Authorised Signatory</p>
         </div>
       </section>
 
-      <footer className="print-avoid-break mt-8 flex items-end justify-between gap-4 border-t border-slate-200 pt-3 text-[7.5pt] text-slate-500">
+      <footer className="print-avoid-break mt-4 flex items-end justify-between gap-4 border-t border-slate-200 pt-2 text-[7.5pt] text-slate-500">
         <div className="min-w-0">
           <p>{s.lab.reportFooter ?? 'This report relates only to the sample(s) received. Results should be interpreted by a qualified clinician in the clinical context.'}</p>
           <p className="mt-1">
@@ -131,7 +131,7 @@ export function ReportDocument({ report, verifyBase }: { report: Report; verifyB
             Verification code <strong className="font-mono">{report.verificationCode}</strong>
           </p>
         </div>
-        <QrCode value={`${verifyBase}/${report.verificationCode}`} size={64} className="shrink-0" />
+        <QrCode value={`${verifyBase}/${report.verificationCode}`} size={56} className="shrink-0" />
       </footer>
     </article>
   );

@@ -1,7 +1,7 @@
 'use client';
 
 import type { ColumnDef } from '@tanstack/react-table';
-import { Plus } from 'lucide-react';
+import { FlaskConical, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import * as React from 'react';
@@ -36,6 +36,16 @@ const columns: ColumnDef<Order, unknown>[] = [
   { id: 'balance', header: 'Balance', accessorFn: (o) => o.billing.balance, cell: ({ row }) => <span className={`tabular ${row.original.billing.balance > 0 ? 'font-medium text-destructive' : 'text-muted-foreground'}`}>{formatMoney(row.original.billing.balance)}</span> },
   { accessorKey: 'status', header: 'Status', cell: ({ getValue }) => <StatusBadge map={ORDER_STATUS} value={String(getValue())} /> },
   { accessorKey: 'createdAt', header: 'Created', cell: ({ getValue }) => <span className="whitespace-nowrap text-xs text-muted-foreground">{formatDateTime(getValue() as string)}</span> },
+  {
+    id: 'actions',
+    header: '',
+    cell: ({ row }) =>
+      row.original.status !== 'cancelled' && (
+        <Button asChild size="sm" variant="outline" onClick={(e) => e.stopPropagation()}>
+          <Link href={`/orders/${row.original.id}/results`}><FlaskConical /> Results</Link>
+        </Button>
+      ),
+  },
 ];
 
 export default function OrdersPage() {
@@ -81,9 +91,9 @@ export default function OrdersPage() {
                   <StatusBadge map={ORDER_STATUS} value={o.status} />
                 </div>
                 <p className="truncate text-xs text-muted-foreground">{o.items.map((i) => i.testCode).join(', ')}</p>
-                <div className="flex justify-between text-sm">
-                  <span className="tabular">{formatMoney(o.billing.total)}</span>
-                  {o.billing.balance > 0 && <span className="tabular font-medium text-destructive">Due {formatMoney(o.billing.balance)}</span>}
+                <div className="flex items-center justify-between gap-2 text-sm">
+                  <span className="tabular">{formatMoney(o.billing.total)}{o.billing.balance > 0 && <span className="ml-2 font-medium text-destructive">Due {formatMoney(o.billing.balance)}</span>}</span>
+                  {o.status !== 'cancelled' && <Button asChild size="sm" variant="outline" onClick={(e) => e.stopPropagation()}><Link href={`/orders/${o.id}/results`}><FlaskConical /> Results</Link></Button>}
                 </div>
               </div>
             )}

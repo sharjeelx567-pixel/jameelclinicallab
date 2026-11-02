@@ -75,6 +75,8 @@ export default function OrderDetailPage() {
           }
           actions={
             <>
+              {!cancelled && (can('results.enter') || can('results.approve')) && <Button asChild><Link href={`/orders/${o.id}/results`}><FlaskConical /> Enter results & report</Link></Button>}
+              <Button variant="outline" onClick={() => window.open(`/print/bill/${o.id}?auto=1`, '_blank', 'noopener')}><Printer /> Bill</Button>
               <Button variant="outline" onClick={() => print('receipt')}><Printer /> Receipt</Button>
               {can('samples.read') && liveSamples.length > 0 && <Button variant="outline" onClick={() => void printLabels()}><Tags /> Labels</Button>}
               {can('billing.collect') && !cancelled && o.billing.balance > 0 && <Button onClick={() => setPayMode('payment')}><Wallet /> Record payment</Button>}
