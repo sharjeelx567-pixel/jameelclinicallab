@@ -66,6 +66,7 @@ function StaffDrawer({ user, onClose, onChanged }: { user: StaffUser; onClose: (
   const { user: me, can } = useAuth();
   const activity = useApi(can('audit.read') ? () => usersService.activity(user.id) : null, [user.id]);
   const [role, setRole] = React.useState(user.role);
+  const [name, setName] = React.useState(user.displayName);
   const [photo, setPhoto] = React.useState(user.photo ?? null);
   const self = me?.uid === user.id;
   const update = async (body: Parameters<typeof usersService.update>[1], msg: string) => {
@@ -83,6 +84,12 @@ function StaffDrawer({ user, onClose, onChanged }: { user: StaffUser; onClose: (
       <DialogContent size="md">
         <DialogHeader><DialogTitle>{user.displayName}</DialogTitle><DialogDescription>{user.email}</DialogDescription></DialogHeader>
         <DialogBody className="space-y-5">
+          {can('users.manage') && (
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+              <Field label="Name (printed as 'Enter By' on bills)" htmlFor="u-name" className="flex-1"><Input id="u-name" value={name} maxLength={80} onChange={(e) => setName(e.target.value)} /></Field>
+              <Button variant="outline" disabled={name.trim().length < 2 || name.trim() === user.displayName} onClick={() => void update({ displayName: name.trim() }, 'Name updated')}>Save name</Button>
+            </div>
+          )}
           <ImageUploader category="staff_profile" ownerId={user.id} current={photo} editable={can('users.manage') || self} onChange={(p) => { setPhoto(p); onChanged(); }} shape="circle" label="Profile photo" />
           {can('users.manage') && !self && (
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
