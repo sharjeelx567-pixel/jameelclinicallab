@@ -2,6 +2,7 @@
 
 import { AlertTriangle, CheckCircle2, ClipboardCheck, Cpu, RotateCcw, XCircle } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import * as React from 'react';
 import { toast } from 'sonner';
 import { ResultContext } from '@/components/laboratory/result-context';
@@ -151,6 +152,7 @@ function VerificationQueue() {
                       {r.priority && r.priority !== 'routine' && <StatusBadge map={PRIORITY} value={r.priority} />}
                     </div>
                   </button>
+                  <Link href={`/orders/${r.orderId}/results`} className="mt-1 inline-block px-3 text-xs font-medium text-primary hover:underline">All tests of this patient · approve & print →</Link>
                 </li>
               ))}
             </ul>
