@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Check, Plus, Printer, Search, Trash2, UserPlus, Users } from 'lucide-react';
+import { Check, ChevronDown, Plus, Printer, Search, Trash2, UserPlus, Users } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
@@ -16,7 +16,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Field, Input, Select } from '@/components/ui/form-controls';
 import { Skeleton, Tabs, TabsList, TabsTrigger } from '@/components/ui/misc';
-import { PAYMENT_METHODS } from '@/constants';
+import { PAYMENT_METHODS, PROVINCES } from '@/constants';
 import { useAuth } from '@/features/auth/auth-provider';
 import { useApi } from '@/hooks/use-api';
 import { useIdempotencyKey } from '@/hooks/use-idempotency-key';
@@ -45,6 +45,7 @@ export default function RegisterAndBillPage() {
   const doctors = useApi(() => doctorsService.list({ status: 'active', limit: 100 }), []);
 
   const [mode, setMode] = React.useState<'new' | 'existing'>('new');
+  const [moreOpen, setMoreOpen] = React.useState(false);
   const [existing, setExisting] = React.useState<Patient | null>(null);
   const [selected, setSelected] = React.useState<string[]>([]);
   const [query, setQuery] = React.useState('');
@@ -61,7 +62,10 @@ export default function RegisterAndBillPage() {
 
   const form = useForm<PatientFormValues, unknown, z.output<typeof patientSchema>>({
     resolver: zodResolver(patientSchema),
-    defaultValues: { name: '', guardianRelation: '', guardianName: '', ageYears: '', gender: undefined as never, mobile: '', cnic: '', addressLine: '', collectionCenterId: '' },
+    defaultValues: {
+      name: '', guardianRelation: '', guardianName: '', ageYears: '', gender: undefined as never, mobile: '', cnic: '', addressLine: '', collectionCenterId: '',
+      dateOfBirth: '', alternateMobile: '', email: '', category: '', branchId: '', sampleCollectionLocation: '', province: '', district: '', tehsil: '', unionCouncil: '', notes: '',
+    },
   });
   const { register, formState: { errors } } = form;
 
@@ -138,7 +142,10 @@ export default function RegisterAndBillPage() {
     try {
       if (mode === 'existing' && existing) return await createOrder(existing);
       const valid = await form.trigger();
-      if (!valid) return toast.error('Check the patient details');
+      if (!valid) {
+        if (errors.dateOfBirth || errors.alternateMobile || errors.email || form.formState.errors.dateOfBirth || form.formState.errors.alternateMobile || form.formState.errors.email) setMoreOpen(true);
+        return toast.error('Check the patient details');
+      }
       const input = toPatientInput(patientSchema.parse(form.getValues()));
       let patient: Patient;
       try {
@@ -209,6 +216,32 @@ export default function RegisterAndBillPage() {
                     <Select id="r-centre" {...register('collectionCenterId')}><option value="">Main laboratory</option>{reference.data?.collectionCenters.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select>
                   </Field>
                   <Field label="Address" htmlFor="r-addr" className="lg:col-span-3"><Input id="r-addr" {...register('addressLine')} /></Field>
+                  <div className="sm:col-span-2 lg:col-span-6">
+                    <button type="button" onClick={() => setMoreOpen((o) => !o)} className="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline" aria-expanded={moreOpen}>
+                      <ChevronDown className={cn('size-4 transition-transform', moreOpen && 'rotate-180')} /> {moreOpen ? 'Hide' : 'More'} patient details (optional)
+                    </button>
+                  </div>
+                  {moreOpen && (
+                    <>
+                      <Field label="Date of birth" htmlFor="r-dob" hint="Or enter age" error={errors.dateOfBirth?.message} className="lg:col-span-2"><Input id="r-dob" type="date" max={new Date().toISOString().slice(0, 10)} {...register('dateOfBirth')} /></Field>
+                      <Field label="Alternate mobile" htmlFor="r-alt" error={errors.alternateMobile?.message} className="lg:col-span-2"><Input id="r-alt" inputMode="tel" {...register('alternateMobile')} /></Field>
+                      <Field label="Email" htmlFor="r-email" error={errors.email?.message} className="lg:col-span-2"><Input id="r-email" type="email" {...register('email')} /></Field>
+                      <Field label="Patient category" htmlFor="r-cat" className="lg:col-span-2">
+                        <Select id="r-cat" {...register('category')}><option value="">—</option>{reference.data?.patientCategories.map((c) => <option key={c} value={c}>{c}</option>)}</Select>
+                      </Field>
+                      <Field label="Branch" htmlFor="r-branch" className="lg:col-span-2">
+                        <Select id="r-branch" {...register('branchId')}><option value="">—</option>{reference.data?.branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</Select>
+                      </Field>
+                      <Field label="Sample collection location" htmlFor="r-loc" className="lg:col-span-2"><Input id="r-loc" placeholder="e.g. Lab, Home, Ward 3" {...register('sampleCollectionLocation')} /></Field>
+                      <Field label="Province" htmlFor="r-prov" className="lg:col-span-2">
+                        <Select id="r-prov" {...register('province')}><option value="">—</option>{PROVINCES.map((p) => <option key={p} value={p}>{p}</option>)}</Select>
+                      </Field>
+                      <Field label="District" htmlFor="r-dist" className="lg:col-span-2"><Input id="r-dist" {...register('district')} /></Field>
+                      <Field label="Tehsil" htmlFor="r-teh" className="lg:col-span-2"><Input id="r-teh" {...register('tehsil')} /></Field>
+                      <Field label="Union council" htmlFor="r-uc" className="lg:col-span-3"><Input id="r-uc" {...register('unionCouncil')} /></Field>
+                      <Field label="Notes" htmlFor="r-notes" className="lg:col-span-3"><Input id="r-notes" {...register('notes')} /></Field>
+                    </>
+                  )}
                   <button type="submit" hidden aria-hidden tabIndex={-1} />
                 </form>
               )}
