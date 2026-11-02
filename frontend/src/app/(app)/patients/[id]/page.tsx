@@ -7,7 +7,7 @@ import * as React from 'react';
 import { toast } from 'sonner';
 import { Barcode } from '@/components/shared/codes';
 import { ConfirmDialog } from '@/components/shared/dialogs';
-import { Logo } from '@/components/shared/logo';
+import { LabLogoMark } from '@/components/shared/lab-logo';
 import { DetailList, EmptyState, ErrorState, LoadingRows, PageHeader } from '@/components/shared/states';
 import { StatCard, StatusBadge } from '@/components/shared/status';
 import { fromPatient, PatientForm } from '@/components/patients/patient-form';
@@ -41,8 +41,8 @@ export default function PatientProfilePage() {
     <div>
       {/* Print-only registration slip */}
       <section className="hidden print:block">
-        <div className="flex items-start justify-between border-b pb-3">
-          <Logo />
+        <div className="flex items-center justify-between border-b pb-3">
+          <LabLogoMark className="size-20" alt={BRAND.name} />
           <div className="text-right text-xs">
             <p className="font-semibold">{BRAND.name}</p>
             <p className="italic text-slate-500">{BRAND.tagline}</p>
@@ -71,7 +71,7 @@ export default function PatientProfilePage() {
             <>
               {can('orders.create') && !archived && <Button asChild><Link href={`/orders/new?patientId=${p.id}`}><Plus /> New order</Link></Button>}
               {can('patients.write') && <Button variant="outline" onClick={() => setEditing(true)}><Pencil /> Edit</Button>}
-              <Button variant="outline" onClick={() => window.print()}><Printer /> Print slip</Button>
+              <Button variant="outline" onClick={() => window.print()} title="Patient registration card with MR number and barcode"><Printer /> Print patient card</Button>
               {can('patients.archive') && (
                 <Button variant="ghost" onClick={() => setArchiving(true)}>{archived ? <><ArchiveRestore /> Restore</> : <><Archive /> Archive</>}</Button>
               )}
