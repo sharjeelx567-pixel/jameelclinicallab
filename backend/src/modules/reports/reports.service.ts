@@ -195,7 +195,7 @@ export class ReportsService {
     }
     // Default: the laboratory logo shipped with the app (backend/assets/jcl-logo.png).
     logo ??= bundledLogo();
-    const buffer = await renderReportPdf(report, getEnv().REPORT_VERIFY_BASE_URL, logo);
+    const buffer = await renderReportPdf(report, getEnv().REPORT_VERIFY_BASE_URL, logo, { signatories: settings.reportSignatories, phone: settings.phone, address: settings.address });
     return { buffer, filename: `${report.reportNumber}-v${report.version}.pdf` };
   }
 

@@ -153,20 +153,20 @@ export default function SettingsPage() {
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <p className="text-[13px] font-medium">Doctor name on reports</p>
-                    <p className="text-xs text-muted-foreground">Printed at the bottom of every new report, e.g. Dr Amir Ghafoor.</p>
+                    <p className="text-[13px] font-medium">Names in report footer (doctor &amp; lab technologists)</p>
+                    <p className="text-xs text-muted-foreground">Printed in one row at the bottom of every new report, e.g. Dr Amir Ghafoor (MBBS, FCPS) and your lab technologist (BMLS). Up to 4 print.</p>
                   </div>
                   {editable && (s.reportSignatories?.length ?? 0) < 6 && (
-                    <Button size="sm" variant="outline" onClick={() => set('reportSignatories', [...(s.reportSignatories ?? []), { name: '', qualification: '' }])}><Plus /> Add doctor</Button>
+                    <Button size="sm" variant="outline" onClick={() => set('reportSignatories', [...(s.reportSignatories ?? []), { name: '', qualification: '' }])}><Plus /> Add name</Button>
                   )}
                 </div>
-                {!(s.reportSignatories?.length) && <p className="text-sm text-muted-foreground">No doctor added yet — reports show the name of the person who approved the results.</p>}
+                {!(s.reportSignatories?.length) && <p className="text-sm text-muted-foreground">None added — reports show the person who approved and the technologist who entered the results.</p>}
                 {s.reportSignatories?.map((sig, i) => {
                   const upd = (k: 'name' | 'qualification', v: string) => set('reportSignatories', s.reportSignatories!.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
                   return (
                     <div key={i} className="grid grid-cols-1 gap-2 rounded-xl bg-muted/40 p-3 sm:grid-cols-[1fr_1fr_auto]">
-                      <Input placeholder="Doctor name, e.g. Dr Amir Ghafoor" value={sig.name} disabled={!editable} onChange={(e) => upd('name', e.target.value)} aria-label="Doctor name" />
-                      <Input placeholder="Qualification (optional), e.g. MBBS, FCPS" value={sig.qualification ?? ''} disabled={!editable} onChange={(e) => upd('qualification', e.target.value)} aria-label="Qualification" />
+                      <Input placeholder={i === 0 ? 'Doctor name, e.g. Dr Amir Ghafoor' : 'Lab technologist name'} value={sig.name} disabled={!editable} onChange={(e) => upd('name', e.target.value)} aria-label="Doctor name" />
+                      <Input placeholder={i === 0 ? 'Qualification, e.g. MBBS, FCPS' : 'Qualification, e.g. BMLS'} value={sig.qualification ?? ''} disabled={!editable} onChange={(e) => upd('qualification', e.target.value)} aria-label="Qualification" />
                       {editable && <Button size="icon" variant="ghost" onClick={() => set('reportSignatories', s.reportSignatories!.filter((_, j) => j !== i))} aria-label="Remove"><Trash2 /></Button>}
                     </div>
                   );

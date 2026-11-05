@@ -13,6 +13,7 @@ import { Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle } from '@/
 import { REPORT_STATUS } from '@/constants';
 import { useAuth } from '@/features/auth/auth-provider';
 import { useApi } from '@/hooks/use-api';
+import { settingsService } from '@/services/admin.service';
 import { errorMessage } from '@/lib/api-client';
 import { formatDateTime, titleCase } from '@/lib/utils';
 import { reportsService } from '@/services/lab.service';
@@ -21,6 +22,7 @@ export default function ReportPreviewPage() {
   const { id } = useParams<{ id: string }>();
   const { can } = useAuth();
   const state = useApi(() => reportsService.get(id), [id]);
+  const letterhead = useApi(() => settingsService.reference(), []);
   const [downloading, setDownloading] = React.useState(false);
   const [showPrints, setShowPrints] = React.useState(false);
   const prints = useApi(showPrints ? () => reportsService.prints(id) : null, [showPrints, id]);
@@ -83,7 +85,7 @@ export default function ReportPreviewPage() {
       )}
 
       <div className="-mx-4 overflow-x-auto bg-muted/40 px-4 py-6 sm:mx-0 sm:rounded-xl print:m-0 print:bg-transparent print:p-0">
-        <ReportDocument report={r} verifyBase={verifyBase} />
+        <ReportDocument report={r} verifyBase={verifyBase} current={letterhead.data ? { signatories: letterhead.data.reportSignatories, phone: letterhead.data.phone, address: letterhead.data.address } : undefined} />
       </div>
 
       <Dialog open={showPrints} onOpenChange={setShowPrints}>

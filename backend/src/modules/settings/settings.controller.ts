@@ -26,6 +26,10 @@ export class SettingsController {
       name: s.name,
       tagline: s.tagline,
       logo: s.logo ?? null,
+      // Letterhead details for printed documents (also used for reports made before they were set).
+      address: s.address,
+      phone: s.phone,
+      reportSignatories: s.reportSignatories ?? [],
       branches: s.branches.filter((b) => b.active),
       collectionCenters: s.collectionCenters.filter((c) => c.active),
       patientCategories: s.patientCategories,

@@ -19,8 +19,14 @@ const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
  * UNITS / NORMAL VALUE table, and a footer on every page with staff names,
  * proviso, print date and page numbers. Matches the on-screen/printed report.
  */
-export async function renderReportPdf(report: ReportDoc, verifyUrl: string, logo?: Buffer): Promise<Buffer> {
-  const s = report.snapshot;
+export async function renderReportPdf(
+  report: ReportDoc,
+  verifyUrl: string,
+  logo?: Buffer,
+  /** Current letterhead settings, used when the report was generated before they were set. */
+  current: { signatories?: Array<{ name: string; qualification?: string }>; phone?: string; address?: string } = {},
+): Promise<Buffer> {
+  const s = { ...report.snapshot, lab: { ...report.snapshot.lab, phone: report.snapshot.lab.phone || current.phone || '', address: report.snapshot.lab.address || current.address || '' } };
   const qr = await QRCode.toBuffer(`${verifyUrl}/${report.verificationCode}`, { margin: 0, width: 140 });
   const FOOTER_H = 112;
   const doc = new PDFDocument({ size: 'A4', margins: { top: 30, bottom: FOOTER_H + 16, left: 36, right: 36 }, bufferPages: true, info: { Title: `Report ${report.reportNumber}`, Author: s.lab.name } });
@@ -154,7 +160,14 @@ export async function renderReportPdf(report: ReportDoc, verifyUrl: string, logo
   }
 
   // Footer + watermark on every page
-  const staff = s.lab.signatories?.length ? s.lab.signatories.slice(0, 4) : [{ name: s.verifiedBy.join(', ') || '-' } as { name: string; qualification?: string }];
+  // Footer names: as set in Settings; otherwise the people on record (approver, then the technologist who entered results).
+  const staff: Array<{ name: string; qualification?: string }> = (s.lab.signatories?.length
+    ? s.lab.signatories
+    : current.signatories?.length
+      ? current.signatories
+      : [...new Set([...s.verifiedBy, ...s.technicians])].filter(Boolean).map((name) => ({ name }))
+  ).slice(0, 4);
+  if (!staff.length) staff.push({ name: '-' });
   const printedAt = fmt(new Date().toISOString());
   const range = doc.bufferedPageRange();
   for (let i = 0; i < range.count; i++) {

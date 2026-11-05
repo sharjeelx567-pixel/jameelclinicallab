@@ -518,6 +518,9 @@ export interface ReferenceData {
   name: string;
   tagline: string;
   logo: MediaRef | null;
+  address?: string;
+  phone?: string;
+  reportSignatories?: ReportSignatory[];
   branches: Array<{ id: string; name: string }>;
   collectionCenters: Array<{ id: string; name: string }>;
   patientCategories: string[];

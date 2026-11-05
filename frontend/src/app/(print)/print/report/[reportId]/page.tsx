@@ -9,6 +9,7 @@ import { ReportDocument } from '@/components/reports/report-document';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/features/auth/auth-provider';
 import { useApi } from '@/hooks/use-api';
+import { settingsService } from '@/services/admin.service';
 import { errorMessage } from '@/lib/api-client';
 import { reportsService } from '@/services/lab.service';
 
@@ -23,6 +24,7 @@ export default function PrintReportPage() {
   const { reportId } = useParams<{ reportId: string }>();
   const params = useSearchParams();
   const state = useApi(() => reportsService.get(reportId), [reportId]);
+  const letterhead = useApi(() => settingsService.reference(), []);
   const started = React.useRef(false);
   const { user } = useAuth();
   const verifyBase = typeof window !== 'undefined' ? `${window.location.origin}/verify` : '/verify';
@@ -80,7 +82,7 @@ export default function PrintReportPage() {
       ) : !state.data ? (
         <div className="mx-auto h-[270mm] max-w-[210mm] animate-pulse rounded bg-white" aria-busy />
       ) : (
-        <ReportDocument report={state.data} verifyBase={verifyBase} printedBy={user?.displayName} />
+        <ReportDocument report={state.data} verifyBase={verifyBase} current={letterhead.data ? { signatories: letterhead.data.reportSignatories, phone: letterhead.data.phone, address: letterhead.data.address } : undefined} printedBy={user?.displayName} />
       )}
     </div>
   );

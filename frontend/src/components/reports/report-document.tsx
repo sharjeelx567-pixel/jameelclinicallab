@@ -3,7 +3,7 @@ import { Barcode, QrCode } from '@/components/shared/codes';
 import { LabLogoMark } from '@/components/shared/lab-logo';
 import { FLAG_META } from '@/constants';
 import { cn, formatDateTime, titleCase } from '@/lib/utils';
-import type { Report } from '@/types';
+import type { Report, ReportSignatory } from '@/types';
 
 const DEFAULT_PROVISO =
   'This report relates only to the sample(s) received. Results should be interpreted by a qualified clinician in the clinical context.';
@@ -14,11 +14,28 @@ const DEFAULT_PROVISO =
  * band, TEST NAME / RESULT / UNITS / NORMAL VALUE table, and a footer pinned to
  * the bottom with staff names, proviso and print details.
  */
-export function ReportDocument({ report, verifyBase, printedBy }: { report: Report; verifyBase: string; printedBy?: string }) {
-  const s = report.snapshot;
+export function ReportDocument({
+  report,
+  verifyBase,
+  printedBy,
+  current,
+}: {
+  report: Report;
+  verifyBase: string;
+  printedBy?: string;
+  /** Current letterhead settings — used when the report was generated before they were set. */
+  current?: { signatories?: ReportSignatory[]; phone?: string; address?: string };
+}) {
+  const s = { ...report.snapshot, lab: { ...report.snapshot.lab, phone: report.snapshot.lab.phone || current?.phone || '', address: report.snapshot.lab.address || current?.address || '' } };
   const watermark = report.status === 'interim' || report.status === 'superseded';
   const tests = [...s.tests].sort((a, b) => a.category.localeCompare(b.category));
-  const staff = s.lab.signatories?.length ? s.lab.signatories : [{ name: s.verifiedBy.join(', ') || '—' }];
+  // Footer names: as set in Settings; otherwise the people on record (approver, then the technologist who entered results).
+  const staff: Array<{ name: string; qualification?: string }> = s.lab.signatories?.length
+    ? s.lab.signatories
+    : current?.signatories?.length
+      ? current.signatories
+      : [...new Set([...s.verifiedBy, ...s.technicians])].filter(Boolean).map((name) => ({ name }));
+  if (!staff.length) staff.push({ name: '—' });
   const Row = ({ k, v }: { k: string; v?: ReactNode }) => (
     <div className="grid grid-cols-[7.8rem_1fr] gap-1 py-[1px]">
       <span className="text-slate-700">{k}</span>
