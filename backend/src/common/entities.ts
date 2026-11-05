@@ -337,7 +337,7 @@ export interface ReportDoc {
 }
 
 export interface ReportSnapshot {
-  lab: { name: string; tagline: string; address: string; phone: string; email: string; reportFooter?: string };
+  lab: { name: string; tagline: string; address: string; phone: string; email: string; reportFooter?: string; signatories?: ReportSignatory[] };
   patient: { name: string; mrNumber: string; age?: string; gender: Gender; guardian?: string; mobile?: string };
   doctorName?: string;
   orderNumber: string;
@@ -565,6 +565,8 @@ export interface LabSettingsDoc {
   logo?: MediaRef;
   reportHeaderNote?: string;
   reportFooter?: string;
+  /** Consultant pathologists printed on every report (the actual approver is printed separately). */
+  reportSignatories?: ReportSignatory[];
   branches: Array<{ id: string; name: string; address?: string; active: boolean }>;
   collectionCenters: Array<{ id: string; name: string; branchId?: string; active: boolean }>;
   patientCategories: string[];
@@ -619,4 +621,10 @@ export interface CatalogIndexDoc {
   updatedAt: string;
   categories: Array<{ id: string; name: string; sortOrder: number; active: boolean }>;
   tests: Array<{ id: string; code: string; name: string; categoryId: string; price: number; sampleType: string; containerType?: string; turnaroundHours: number; reportingTime?: string; discountEligible: boolean; active: boolean }>;
+}
+
+export interface ReportSignatory {
+  name: string;
+  qualification?: string;
+  title?: string;
 }

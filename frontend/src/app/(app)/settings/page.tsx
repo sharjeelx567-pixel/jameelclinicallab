@@ -150,6 +150,28 @@ export default function SettingsPage() {
             <CardContent className="grid grid-cols-1 gap-4">
               <Field label="Header note" htmlFor="s-hn"><Input id="s-hn" value={s.reportHeaderNote ?? ''} disabled={!editable} onChange={(e) => set('reportHeaderNote', e.target.value || undefined)} /></Field>
               <Field label="Footer / disclaimer" htmlFor="s-ft" hint="Printed at the bottom of every report page"><Textarea id="s-ft" rows={3} value={s.reportFooter ?? ''} disabled={!editable} onChange={(e) => set('reportFooter', e.target.value || undefined)} /></Field>
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-[13px] font-medium">Doctor name on reports</p>
+                    <p className="text-xs text-muted-foreground">Printed at the bottom of every new report, e.g. Dr Amir Ghafoor.</p>
+                  </div>
+                  {editable && (s.reportSignatories?.length ?? 0) < 6 && (
+                    <Button size="sm" variant="outline" onClick={() => set('reportSignatories', [...(s.reportSignatories ?? []), { name: '', qualification: '' }])}><Plus /> Add doctor</Button>
+                  )}
+                </div>
+                {!(s.reportSignatories?.length) && <p className="text-sm text-muted-foreground">No doctor added yet — reports show the name of the person who approved the results.</p>}
+                {s.reportSignatories?.map((sig, i) => {
+                  const upd = (k: 'name' | 'qualification', v: string) => set('reportSignatories', s.reportSignatories!.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
+                  return (
+                    <div key={i} className="grid grid-cols-1 gap-2 rounded-xl bg-muted/40 p-3 sm:grid-cols-[1fr_1fr_auto]">
+                      <Input placeholder="Doctor name, e.g. Dr Amir Ghafoor" value={sig.name} disabled={!editable} onChange={(e) => upd('name', e.target.value)} aria-label="Doctor name" />
+                      <Input placeholder="Qualification (optional), e.g. MBBS, FCPS" value={sig.qualification ?? ''} disabled={!editable} onChange={(e) => upd('qualification', e.target.value)} aria-label="Qualification" />
+                      {editable && <Button size="icon" variant="ghost" onClick={() => set('reportSignatories', s.reportSignatories!.filter((_, j) => j !== i))} aria-label="Remove"><Trash2 /></Button>}
+                    </div>
+                  );
+                })}
+              </div>
             </CardContent>
           </Card>
           <Card>

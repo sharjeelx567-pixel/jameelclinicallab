@@ -35,6 +35,9 @@ export const UpdateSettingsDto = z
     website: optionalText(120),
     reportHeaderNote: optionalText(300),
     reportFooter: optionalText(500),
+    reportSignatories: z
+      .array(z.object({ name: requiredText(80), qualification: optionalText(120), title: optionalText(80) }))
+      .max(6),
     branches: z.array(idName.extend({ address: optionalText(200) })).min(1).max(50),
     collectionCenters: z.array(idName.extend({ branchId: optionalText(40) })).max(200),
     patientCategories: z.array(requiredText(40)).max(30),

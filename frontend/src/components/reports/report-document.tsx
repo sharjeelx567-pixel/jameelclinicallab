@@ -108,17 +108,15 @@ export function ReportDocument({ report, verifyBase }: { report: Report; verifyB
 
       <p className="mt-4 text-[7.5pt] text-slate-500">Flags: H = high, L = low, HH / LL = critical, A = abnormal. Values are interpreted against reference ranges approved by the laboratory.</p>
 
-      <section className="print-avoid-break mt-6 grid grid-cols-2 gap-10 text-[8.5pt]">
-        <div>
-          <div className="h-7 border-b border-slate-400" />
-          <p className="mt-1 font-semibold">{s.technicians.join(', ') || '—'}</p>
-          <p className="text-slate-500">Laboratory Technologist</p>
-        </div>
-        <div className="text-right">
-          <div className="h-7 border-b border-slate-400" />
-          <p className="mt-1 font-semibold">{s.verifiedBy.join(', ') || '—'}</p>
-          <p className="text-slate-500">Pathologist / Authorised Signatory</p>
-        </div>
+      {/* Signature: just the doctor's name (Settings → Reports & labels); falls back to the approver's name. */}
+      <section className="print-avoid-break mt-6 flex flex-wrap justify-end gap-x-10 gap-y-3 text-right text-[9pt]">
+        {(s.lab.signatories?.length ? s.lab.signatories : [{ name: s.verifiedBy.join(', ') || '—' }]).map((sig) => (
+          <div key={sig.name} className="min-w-[45mm]">
+            <div className="h-7 border-b border-slate-400" />
+            <p className="mt-1 font-bold">{sig.name}</p>
+            {'qualification' in sig && sig.qualification && <p className="text-[8pt] text-slate-500">{sig.qualification}</p>}
+          </div>
+        ))}
       </section>
 
       <footer className="print-avoid-break mt-4 flex items-end justify-between gap-4 border-t border-slate-200 pt-2 text-[7.5pt] text-slate-500">

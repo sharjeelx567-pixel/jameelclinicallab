@@ -172,11 +172,19 @@ export async function renderReportPdf(report: ReportDoc, verifyUrl: string, logo
     doc.moveDown(1);
   }
 
-  // Approval block
-  ensure(50);
-  doc.moveDown(1);
-  doc.fillColor(COLORS.muted).font('Helvetica').fontSize(8).text(`Performed by: ${s.technicians.join(', ') || '—'}`, left, doc.y, { width: width / 2 });
-  doc.fillColor(COLORS.ink).font('Helvetica-Bold').fontSize(9).text(`Approved by: ${s.verifiedBy.join(', ') || '—'}`, left + width / 2, doc.y - 10, { width: width / 2, align: 'right' });
+  // Signature: just the doctor's name (Settings → Reports & labels); falls back to the approver's name.
+  const signatories = s.lab.signatories?.length ? s.lab.signatories.slice(0, 4) : [{ name: s.verifiedBy.join(', ') || '—' } as { name: string; qualification?: string }];
+  ensure(60);
+  doc.moveDown(1.5);
+  const sigY = doc.y + 18;
+  const colW = 160;
+  signatories.forEach((sig, i) => {
+    const x = left + width - colW * (signatories.length - i);
+    doc.moveTo(x + 10, sigY).lineTo(x + colW, sigY).lineWidth(0.6).strokeColor(COLORS.muted).stroke();
+    doc.fillColor(COLORS.ink).font('Helvetica-Bold').fontSize(9.5).text(sig.name, x, sigY + 4, { width: colW, align: 'right' });
+    if (sig.qualification) doc.fillColor(COLORS.muted).font('Helvetica').fontSize(8).text(sig.qualification, x, doc.y, { width: colW, align: 'right' });
+  });
+  doc.y = sigY + 34;
 
   // Footer + watermark on every page
   const range = doc.bufferedPageRange();

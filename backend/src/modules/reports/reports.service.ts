@@ -75,7 +75,7 @@ export class ReportsService {
       const id = this.store.newId();
 
       const snapshot: ReportSnapshot = {
-        lab: { name: settings.name, tagline: settings.tagline, address: settings.address, phone: settings.phone, email: settings.email, reportFooter: settings.reportFooter },
+        lab: { name: settings.name, tagline: settings.tagline, address: settings.address, phone: settings.phone, email: settings.email, reportFooter: settings.reportFooter, ...(settings.reportSignatories?.length ? { signatories: settings.reportSignatories } : {}) },
         patient: {
           name: patient.name,
           mrNumber: patient.mrNumber,

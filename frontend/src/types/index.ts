@@ -289,7 +289,7 @@ export interface ResultWorkspace {
 export type ReportStatus = 'final' | 'interim' | 'amended' | 'superseded';
 
 export interface ReportSnapshot {
-  lab: { name: string; tagline: string; address: string; phone: string; email: string; reportFooter?: string };
+  lab: { name: string; tagline: string; address: string; phone: string; email: string; reportFooter?: string; signatories?: ReportSignatory[] };
   patient: { name: string; mrNumber: string; age?: string; gender: Gender };
   doctorName?: string;
   orderNumber: string;
@@ -500,6 +500,7 @@ export interface LabSettings {
   logo?: MediaRef;
   reportHeaderNote?: string;
   reportFooter?: string;
+  reportSignatories?: ReportSignatory[];
   branches: Array<{ id: string; name: string; address?: string; active: boolean }>;
   collectionCenters: Array<{ id: string; name: string; branchId?: string; active: boolean }>;
   patientCategories: string[];
@@ -557,4 +558,10 @@ export interface MediaConfig {
   provider: 'cloudinary';
   cloudName: string | null;
   categories: Array<{ id: MediaCategory; label: string; folder: string; maxBytes: number; accept: string[] }>;
+}
+
+export interface ReportSignatory {
+  name: string;
+  qualification?: string;
+  title?: string;
 }
