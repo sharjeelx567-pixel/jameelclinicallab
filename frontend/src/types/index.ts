@@ -290,9 +290,11 @@ export type ReportStatus = 'final' | 'interim' | 'amended' | 'superseded';
 
 export interface ReportSnapshot {
   lab: { name: string; tagline: string; address: string; phone: string; email: string; reportFooter?: string; signatories?: ReportSignatory[] };
-  patient: { name: string; mrNumber: string; age?: string; gender: Gender };
+  patient: { name: string; mrNumber: string; age?: string; gender: Gender; guardian?: string; mobile?: string; address?: string };
   doctorName?: string;
   orderNumber: string;
+  centre?: string;
+  registeredAt?: string;
   samples: Array<{ sampleNumber: string; sampleType: string; collectedAt?: string }>;
   tests: Array<{
     resultId: string;

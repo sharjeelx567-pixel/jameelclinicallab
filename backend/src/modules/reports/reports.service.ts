@@ -83,6 +83,11 @@ export class ReportsService {
           gender: patient.gender,
           ...(patient.guardianName ? { guardian: `${patient.guardianName}${patient.guardianRelation && patient.guardianRelation !== 'other' ? ` (${patient.guardianRelation})` : ''}` } : {}),
           mobile: patient.mobile,
+          ...(() => {
+            const a = patient.address ?? {};
+            const address = [a.line, a.unionCouncil, a.tehsil, a.district].filter(Boolean).join(', ');
+            return address ? { address } : {};
+          })(),
         },
         doctorName: order.doctorName,
         orderNumber: order.orderNumber,

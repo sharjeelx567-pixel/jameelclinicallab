@@ -7,6 +7,7 @@ import * as React from 'react';
 import { toast } from 'sonner';
 import { ReportDocument } from '@/components/reports/report-document';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/features/auth/auth-provider';
 import { useApi } from '@/hooks/use-api';
 import { errorMessage } from '@/lib/api-client';
 import { reportsService } from '@/services/lab.service';
@@ -23,6 +24,7 @@ export default function PrintReportPage() {
   const params = useSearchParams();
   const state = useApi(() => reportsService.get(reportId), [reportId]);
   const started = React.useRef(false);
+  const { user } = useAuth();
   const verifyBase = typeof window !== 'undefined' ? `${window.location.origin}/verify` : '/verify';
 
   const print = React.useCallback(async () => {
@@ -78,7 +80,7 @@ export default function PrintReportPage() {
       ) : !state.data ? (
         <div className="mx-auto h-[270mm] max-w-[210mm] animate-pulse rounded bg-white" aria-busy />
       ) : (
-        <ReportDocument report={state.data} verifyBase={verifyBase} />
+        <ReportDocument report={state.data} verifyBase={verifyBase} printedBy={user?.displayName} />
       )}
     </div>
   );

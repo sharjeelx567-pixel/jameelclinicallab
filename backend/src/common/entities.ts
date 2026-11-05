@@ -338,7 +338,7 @@ export interface ReportDoc {
 
 export interface ReportSnapshot {
   lab: { name: string; tagline: string; address: string; phone: string; email: string; reportFooter?: string; signatories?: ReportSignatory[] };
-  patient: { name: string; mrNumber: string; age?: string; gender: Gender; guardian?: string; mobile?: string };
+  patient: { name: string; mrNumber: string; age?: string; gender: Gender; guardian?: string; mobile?: string; address?: string };
   doctorName?: string;
   orderNumber: string;
   /** Collection centre / branch name and registration time (snapshots from v2 onward). */

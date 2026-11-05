@@ -1,135 +1,134 @@
-import { QrCode } from '@/components/shared/codes';
+import type { ReactNode } from 'react';
+import { Barcode, QrCode } from '@/components/shared/codes';
 import { LabLogoMark } from '@/components/shared/lab-logo';
 import { FLAG_META } from '@/constants';
 import { cn, formatDateTime, titleCase } from '@/lib/utils';
 import type { Report } from '@/types';
 
+const DEFAULT_PROVISO =
+  'This report relates only to the sample(s) received. Results should be interpreted by a qualified clinician in the clinical context.';
+
 /**
- * A4 clinical report rendered from the immutable server snapshot. Designed as a
- * print document (not dashboard UI): fixed typographic scale in pt, tables whose
- * header repeats across pages, rows that never split, and a status watermark.
+ * A4 clinical report rendered from the immutable server snapshot, in the classic
+ * Pakistani laboratory layout: letterhead, two-column patient block, department
+ * band, TEST NAME / RESULT / UNITS / NORMAL VALUE table, and a footer pinned to
+ * the bottom with staff names, proviso and print details.
  */
-export function ReportDocument({ report, verifyBase }: { report: Report; verifyBase: string }) {
+export function ReportDocument({ report, verifyBase, printedBy }: { report: Report; verifyBase: string; printedBy?: string }) {
   const s = report.snapshot;
   const watermark = report.status === 'interim' || report.status === 'superseded';
+  const tests = [...s.tests].sort((a, b) => a.category.localeCompare(b.category));
+  const staff = s.lab.signatories?.length ? s.lab.signatories : [{ name: s.verifiedBy.join(', ') || '—' }];
+  const Row = ({ k, v }: { k: string; v?: ReactNode }) => (
+    <div className="grid grid-cols-[7.8rem_1fr] gap-1 py-[1px]">
+      <span className="text-slate-700">{k}</span>
+      <span className="font-bold">:- {v || '—'}</span>
+    </div>
+  );
+
   return (
-    <article className="print-area relative mx-auto w-full max-w-[210mm] overflow-hidden bg-white p-[10mm] text-[9.5pt] leading-snug text-slate-900 shadow-elevated sm:p-[14mm]">
+    <article className="print-area relative mx-auto flex min-h-[273mm] w-full max-w-[210mm] flex-col overflow-hidden bg-white p-[10mm] text-[9.5pt] leading-snug text-slate-900 shadow-elevated print:min-h-[262mm] sm:p-[12mm]">
       {watermark && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden>
           <span className={cn('-rotate-[30deg] select-none text-[64pt] font-black tracking-widest opacity-[0.07] sm:text-[88pt]', report.status === 'superseded' ? 'text-red-700' : 'text-slate-900')}>{report.status.toUpperCase()}</span>
         </div>
       )}
 
-      <header className="flex flex-wrap items-start justify-between gap-4 border-b-2 border-[#0d7f8e] pb-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <LabLogoMark className="size-20 shrink-0" alt={s.lab.name} />
-          <div className="min-w-0">
-            <h1 className="font-display text-[15pt] font-bold tracking-wide text-[#0d7f8e]">{s.lab.name}</h1>
-            <p className="text-[8.5pt] italic text-slate-500">{s.lab.tagline}</p>
-            <p className="text-[8pt] text-slate-600">{[s.lab.address, s.lab.phone, s.lab.email].filter(Boolean).join(' • ')}</p>
-          </div>
-        </div>
-        <div className="text-right">
-          <p className="text-[11pt] font-semibold uppercase tracking-wider">Laboratory report</p>
-          <p className={cn('mt-1 inline-block rounded px-2 py-0.5 text-[8pt] font-bold uppercase', report.status === 'final' ? 'bg-emerald-50 text-emerald-700' : report.status === 'amended' ? 'bg-sky-50 text-sky-700' : report.status === 'interim' ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-700')}>
-            {report.status}
-          </p>
+      {/* Letterhead */}
+      <header className="flex items-center gap-4">
+        <LabLogoMark className="size-24 shrink-0" alt={s.lab.name} />
+        <div className="min-w-0 flex-1 text-center">
+          <h1 className="font-serif text-[22pt] font-bold uppercase leading-tight tracking-wide text-slate-900">{s.lab.name}</h1>
+          {s.lab.tagline && <p className="text-[11pt] font-semibold text-[#15803d]">{s.lab.tagline}</p>}
+          {(s.lab.address || s.lab.phone) && <p className="text-[9.5pt] font-semibold">{[s.lab.address, s.lab.phone && `Ph# ${s.lab.phone}`].filter(Boolean).join('. ')}</p>}
         </div>
       </header>
+      <p className="mt-1 border-b-2 border-slate-800 pb-1 text-center font-serif text-[11.5pt] font-bold uppercase tracking-wide">
+        Clinical Laboratory Report
+        {report.status !== 'final' && <span className="ml-2 align-middle text-[8pt] font-bold text-amber-700">({report.status})</span>}
+      </p>
 
-      <section className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 rounded-md bg-slate-50 p-3 text-[8.5pt] sm:grid-cols-3">
-        {[
-          ['Patient', s.patient.name],
-          ['MR No.', s.patient.mrNumber],
-          ['Age / Gender', `${s.patient.age ?? '—'} / ${titleCase(s.patient.gender)}`],
-          ['Referred by', s.doctorName ?? 'Self'],
-          ['Order No.', s.orderNumber],
-          ['Report No.', `${report.reportNumber} (v${report.version})`],
-          ['Sample(s)', s.samples.map((x) => `${x.sampleNumber} — ${x.sampleType}`).join(', ')],
-          ['Collected', formatDateTime(s.samples[0]?.collectedAt)],
-          ['Reported', formatDateTime(report.generatedAt)],
-        ].map(([k, v]) => (
-          <div key={k} className="min-w-0">
-            <span className="block text-[7.5pt] uppercase tracking-wide text-slate-500">{k}</span>
-            <span className="block break-words font-semibold">{v}</span>
+      {/* Patient block */}
+      <section className="grid grid-cols-2 gap-6 border-b-2 border-slate-800 py-2 text-[9.5pt]">
+        <div>
+          <Row k="Patient Name" v={s.patient.name} />
+          {s.patient.guardian && <Row k="Father/Husband" v={s.patient.guardian} />}
+          <Row k="Address" v={s.patient.address} />
+          <Row k="Age & Gender" v={`${s.patient.age ?? '—'} ${titleCase(s.patient.gender)}`} />
+          <Row k="MR No." v={s.patient.mrNumber} />
+          <Row k="Referred By" v={s.doctorName ?? 'Self'} />
+        </div>
+        <div className="flex flex-col">
+          <Row k="Lab No. #" v={s.orderNumber} />
+          <Row k="Sample Date & Time" v={formatDateTime(s.samples[0]?.collectedAt ?? s.registeredAt)} />
+          <Row k="Report Date & Time" v={formatDateTime(report.generatedAt)} />
+          <div className="mt-1 flex items-end justify-end gap-3">
+            <Barcode value={s.orderNumber} height={26} width={1.1} displayValue={false} />
+            <QrCode value={`${verifyBase}/${report.verificationCode}`} size={46} />
           </div>
-        ))}
+        </div>
       </section>
 
-      <section className="mt-4 space-y-4">
-        {[...s.tests].sort((a, b) => a.category.localeCompare(b.category)).map((t, i, all) => (
+      {/* Results, grouped by department */}
+      <section className="mt-2 space-y-3">
+        {tests.map((t, i) => (
           <div key={t.resultId} className="print-avoid-break">
-            {(i === 0 || all[i - 1].category !== t.category) && (
-              <h2 className="mb-2 mt-1 border-b border-slate-800 pb-0.5 text-[11.5pt] font-bold uppercase tracking-wide">Department of {t.category}</h2>
+            {(i === 0 || tests[i - 1].category !== t.category) && (
+              <>
+                <h2 className="mt-1 text-center font-serif text-[12pt] font-bold uppercase tracking-wide">{t.category}</h2>
+                <div className="grid grid-cols-[40%_18%_17%_25%] border-y-2 border-slate-700 bg-slate-200 px-3 py-1 text-[9pt] font-bold uppercase">
+                  <span>Test Name</span><span>Result</span><span>Units</span><span>Normal Value</span>
+                </div>
+              </>
             )}
-            <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-200 pb-1">
-              <h3 className="text-[10.5pt] font-bold uppercase tracking-wide text-[#0d7f8e]">{t.testName}</h3>
-              <span className="text-[7.5pt] text-slate-500">{t.category}{t.amended && <strong className="ml-2 text-sky-700">AMENDED</strong>}</span>
+            <div className="mt-1 bg-slate-100 px-3 py-[2px] text-[9pt] font-bold uppercase">
+              {t.testName}
+              {t.amended && <span className="ml-2 text-[7.5pt] text-sky-700">AMENDED</span>}
             </div>
             {t.status === 'pending' ? (
-              <p className="py-2 text-[8.5pt] italic text-slate-500">Result pending — will be issued after verification.</p>
+              <p className="px-3 py-1 text-[8.5pt] italic text-slate-500">Result pending — will be issued after verification.</p>
             ) : (
               <>
-                <div className="overflow-x-auto">
-                  <table className="mt-1 w-full min-w-[150mm] border-collapse text-[8.8pt]">
-                    <thead>
-                      <tr className="text-left text-[7.5pt] uppercase tracking-wide text-slate-500">
-                        <th className="w-[36%] py-1 font-semibold">Parameter</th>
-                        <th className="w-[16%] py-1 font-semibold">Result</th>
-                        <th className="w-[8%] py-1 font-semibold">Flag</th>
-                        <th className="w-[14%] py-1 font-semibold">Unit</th>
-                        <th className="py-1 font-semibold">Reference range</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {t.values.map((v, i) => {
-                        const abnormal = v.flag !== 'normal' && v.flag !== 'no_range';
-                        return (
-                          <tr key={`${v.parameterName}-${i}`} className="border-t border-slate-100 odd:bg-white even:bg-slate-50/60">
-                            <td className="py-[3px] pr-2">{v.parameterName}</td>
-                            <td className={cn('tabular py-[3px] pr-2', abnormal && 'font-bold', v.flag.includes('low') ? 'text-blue-700' : abnormal && 'text-red-700')}>{v.value}</td>
-                            <td className={cn('py-[3px] font-bold', v.flag.includes('low') ? 'text-blue-700' : 'text-red-700')}>{FLAG_META[v.flag]?.short}</td>
-                            <td className="py-[3px] pr-2 text-slate-600">{v.unit}</td>
-                            <td className="py-[3px] text-slate-600">{v.range || <span className="italic text-slate-400">Not established</span>}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                {t.comment && <p className="mt-1 text-[8.3pt] italic text-slate-600">Comment: {t.comment}</p>}
-                {t.amended && t.amendmentReason && <p className="mt-1 text-[8pt] text-sky-700">Amended — reason: {t.amendmentReason}</p>}
-                <p className="mt-1 text-[7.5pt] text-slate-500">Verified by {t.approvedBy} · {formatDateTime(t.approvedAt)}</p>
+                {t.values.map((v, j) => {
+                  const abnormal = v.flag !== 'normal' && v.flag !== 'no_range';
+                  const low = v.flag.includes('low');
+                  return (
+                    <div key={`${v.parameterName}-${j}`} className="grid grid-cols-[40%_18%_17%_25%] px-3 py-[2px] text-[9pt]">
+                      <span className="uppercase">{v.parameterName === 'Result' ? t.testName : v.parameterName}</span>
+                      <span className={cn('tabular', abnormal && 'font-bold', abnormal && (low ? 'text-blue-700' : 'text-red-700'))}>
+                        {v.value}
+                        {abnormal && <span className="ml-1.5 text-[8pt]">{FLAG_META[v.flag]?.short}</span>}
+                      </span>
+                      <span>{v.unit}</span>
+                      <span>{v.range || <span className="italic text-slate-400">—</span>}</span>
+                    </div>
+                  );
+                })}
+                {t.comment && <p className="px-3 pt-0.5 text-[8.5pt] italic text-slate-700">Comment: {t.comment}</p>}
+                {t.amended && t.amendmentReason && <p className="px-3 text-[8pt] text-sky-700">Amended — reason: {t.amendmentReason}</p>}
               </>
             )}
           </div>
         ))}
       </section>
 
-      <p className="mt-4 text-[7.5pt] text-slate-500">Flags: H = high, L = low, HH / LL = critical, A = abnormal. Values are interpreted against reference ranges approved by the laboratory.</p>
-
-      {/* Signature: just the doctor's name (Settings → Reports & labels); falls back to the approver's name. */}
-      <section className="print-avoid-break mt-6 flex flex-wrap justify-end gap-x-10 gap-y-3 text-right text-[9pt]">
-        {(s.lab.signatories?.length ? s.lab.signatories : [{ name: s.verifiedBy.join(', ') || '—' }]).map((sig) => (
-          <div key={sig.name} className="min-w-[45mm]">
-            <div className="h-7 border-b border-slate-400" />
-            <p className="mt-1 font-bold">{sig.name}</p>
-            {'qualification' in sig && sig.qualification && <p className="text-[8pt] text-slate-500">{sig.qualification}</p>}
-          </div>
-        ))}
-      </section>
-
-      <footer className="print-avoid-break mt-4 flex items-end justify-between gap-4 border-t border-slate-200 pt-2 text-[7.5pt] text-slate-500">
-        <div className="min-w-0">
-          <p>{s.lab.reportFooter ?? 'This report relates only to the sample(s) received. Results should be interpreted by a qualified clinician in the clinical context.'}</p>
-          <p className="mt-1">
-            Verify authenticity: <span className="break-all font-mono">{verifyBase}/{report.verificationCode}</span>
-          </p>
-          <p>
-            Verification code <strong className="font-mono">{report.verificationCode}</strong>
-          </p>
+      {/* Footer pinned to the bottom of the page */}
+      <footer className="print-avoid-break mt-auto pt-6 text-[8.5pt]">
+        <p className="border-b-2 border-slate-800 pb-0.5 text-center text-[9pt] font-semibold">Electronically verified, no signature(s) required.</p>
+        <div className="flex flex-wrap justify-between gap-x-6 gap-y-2 py-1.5">
+          {staff.map((p) => (
+            <div key={p.name} className="min-w-0 first:text-left last:text-right [&:not(:first-child):not(:last-child)]:text-center">
+              <p className="text-[9.5pt] font-bold">{p.name}</p>
+              {'qualification' in p && p.qualification && <p className="text-[8.5pt]">{p.qualification}</p>}
+            </div>
+          ))}
         </div>
-        <QrCode value={`${verifyBase}/${report.verificationCode}`} size={56} className="shrink-0" />
+        <p className="border-t-2 border-slate-800 pt-1 text-[8pt]"><strong>Proviso:</strong> {s.lab.reportFooter || DEFAULT_PROVISO}</p>
+        <div className="mt-1 flex flex-wrap justify-between gap-2 text-[8pt] text-slate-700">
+          <span>Print Date &amp; Time: {formatDateTime(new Date().toISOString())}</span>
+          <span>Report No. {report.reportNumber}{s.lab.phone ? ` · For any query please contact: ${s.lab.phone}` : ` · Thank you for choosing ${s.lab.name}`}</span>
+          {printedBy && <span>Printed By:- {printedBy}</span>}
+        </div>
       </footer>
     </article>
   );
