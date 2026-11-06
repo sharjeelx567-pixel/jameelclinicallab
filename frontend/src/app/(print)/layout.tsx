@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import * as React from 'react';
-import { LogoMark } from '@/components/shared/logo';
+import { BrandLoader } from '@/components/shared/brand-loader';
 import { useAuth } from '@/features/auth/auth-provider';
 
 /**
@@ -20,9 +20,7 @@ export default function PrintLayout({ children }: { children: React.ReactNode })
 
   if (status !== 'authenticated')
     return (
-      <div className="grid min-h-dvh place-items-center bg-white text-sm text-slate-500" aria-busy>
-        <div className="flex flex-col items-center gap-3"><LogoMark className="size-12 animate-pulse" />Loading…</div>
-      </div>
+      <BrandLoader className="bg-white" />
     );
   return <div className="print-root min-h-dvh bg-slate-100 text-slate-900 print:min-h-0 print:bg-white">{children}</div>;
 }

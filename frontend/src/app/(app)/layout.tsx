@@ -3,7 +3,7 @@
 import { usePathname, useRouter } from 'next/navigation';
 import * as React from 'react';
 import { AppShell } from '@/components/layout/app-shell';
-import { LogoMark } from '@/components/shared/logo';
+import { BrandLoader } from '@/components/shared/brand-loader';
 import { NAV } from '@/constants';
 import { useAuth } from '@/features/auth/auth-provider';
 
@@ -22,12 +22,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
 
   if (status !== 'authenticated' || (required && !can(required))) {
     return (
-      <div className="grid min-h-dvh place-items-center" aria-busy>
-        <div className="flex flex-col items-center gap-3 text-sm text-muted-foreground">
-          <LogoMark className="size-12 animate-pulse" />
-          Loading secure workspace…
-        </div>
-      </div>
+      <BrandLoader label="Loading secure workspace…" />
     );
   }
   return <AppShell>{children}</AppShell>;

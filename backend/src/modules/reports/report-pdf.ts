@@ -45,7 +45,17 @@ export async function renderReportPdf(
     let textX = left;
     if (logo) {
       try {
-        doc.image(logo, left, top, { fit: [74, 70] });
+        // Round logo: white disc, image clipped to the circle, thin grey ring.
+        const r = 35;
+        const cx = left + r;
+        const cy = top + r;
+        const inner = r * 0.84;
+        doc.save();
+        doc.circle(cx, cy, r).fill('#ffffff');
+        doc.circle(cx, cy, r).clip();
+        doc.image(logo, cx - inner, cy - inner, { fit: [inner * 2, inner * 2], align: 'center', valign: 'center' });
+        doc.restore();
+        doc.circle(cx, cy, r).lineWidth(0.8).strokeColor('#cbd5e1').stroke();
         textX = left + 84;
       } catch {
         /* unreadable logo: text-only letterhead */

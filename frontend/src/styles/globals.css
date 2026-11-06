@@ -92,6 +92,22 @@
 .animate-scan { animation: scan-line 5s linear infinite; }
 .animate-live-ping { animation: live-ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite; }
 
+/* Brand loader */
+@keyframes loader-spin { to { transform: rotate(360deg); } }
+@keyframes loader-pulse { 0%, 100% { transform: scale(0.85); opacity: 0.55; } 50% { transform: scale(1.12); opacity: 1; } }
+@keyframes loader-float { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-6px) scale(1.04); } }
+@keyframes loader-shimmer { 0% { background-position: 100% 0; } 100% { background-position: -150% 0; } }
+@keyframes loader-bar { 0% { transform: translateX(-110%); } 100% { transform: translateX(330%); } }
+.loader-spin { animation: loader-spin 1.6s linear infinite; }
+.loader-spin-rev { animation: loader-spin 7s linear infinite reverse; }
+.loader-pulse { animation: loader-pulse 2.2s ease-in-out infinite; }
+.loader-float { animation: loader-float 2.8s ease-in-out infinite; }
+.loader-orbit-1 { animation: loader-spin 2.4s linear infinite; }
+.loader-orbit-2 { animation: loader-spin 3.6s linear infinite reverse; animation-delay: -1.2s; }
+.loader-orbit-3 { animation: loader-spin 5s linear infinite; animation-delay: -2.5s; }
+.loader-shimmer { animation: loader-shimmer 2.6s linear infinite; }
+.loader-bar { animation: loader-bar 1.4s ease-in-out infinite; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
