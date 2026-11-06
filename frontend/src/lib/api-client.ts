@@ -135,7 +135,7 @@ export const errorMessage = (err: unknown) => {
     const first = Object.entries(err.fieldErrors)[0];
     if (!first) return err.message;
     const [path, msg] = first;
-    const row = /^rows.(d+)(?:.(w+))?/.exec(path);
+    const row = /^rows\.(\d+)(?:\.(\w+))?/.exec(path);
     const where = row ? `Row ${Number(row[1]) + 2} of the file${row[2] ? ` (${row[2]})` : ''}` : path;
     const more = Object.keys(err.fieldErrors).length - 1;
     return `${err.message}: ${where} — ${msg}${more > 0 ? ` (and ${more} more)` : ''}`;

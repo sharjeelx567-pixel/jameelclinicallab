@@ -21,4 +21,19 @@ describe('parseCsv', () => {
       ['4103', 'Thyroid, "TSH"', '1400'],
     ]);
   });
+  it('keeps a stray quote inside a value instead of joining the next rows', () => {
+    expect(parseCsv('code,name,sample\n1,Swab 5" long,Pus\n2,CBC,Blood\n')).toEqual([
+      ['code', 'name', 'sample'],
+      ['1', 'Swab 5" long', 'Pus'],
+      ['2', 'CBC', 'Blood'],
+    ]);
+  });
+});
+
+describe('errorMessage', () => {
+  it('names the file row of a validation problem', async () => {
+    const { ApiError, errorMessage } = await import('@/lib/api-client');
+    const err = new ApiError(400, 'VALIDATION_FAILED', 'Some fields are invalid', [{ path: 'rows.295.sample', message: 'sample is longer than 200 characters' }]);
+    expect(errorMessage(err)).toBe('Some fields are invalid: Row 297 of the file (sample) — sample is longer than 200 characters');
+  });
 });

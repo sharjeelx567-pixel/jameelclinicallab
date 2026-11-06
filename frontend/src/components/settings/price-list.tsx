@@ -95,10 +95,14 @@ export function PriceList({ editable }: { editable: boolean }) {
         const n = i + 2;
         const code = (l[c.code] ?? '').trim();
         const name = (l[c.name] ?? '').trim();
-        const rawPrice = String(l[c.price] ?? '').replace(/[,s]|rs.?/gi, '');
+        const rawPrice = String(l[c.price] ?? '').replace(/[,\s]|rs\.?/gi, '');
         const price = Number(rawPrice);
         const sample = c.sample >= 0 ? (l[c.sample] ?? '').trim() : undefined;
         const reportingTime = c.reportingTime >= 0 ? (l[c.reportingTime] ?? '').trim() : undefined;
+        if (l.some((v) => /[\r\n]/.test(v ?? ''))) {
+          problems.push(`Row ${n} (code ${code || '?'}): a quote mark (") is opened but not closed, so several rows were joined — remove that quote in Excel`);
+          return;
+        }
         if (!code) problems.push(`Row ${n}: code is empty`);
         else if (code.length > 40) problems.push(`Row ${n}: code is too long`);
         if (!name) problems.push(`Row ${n}: test name is empty`);

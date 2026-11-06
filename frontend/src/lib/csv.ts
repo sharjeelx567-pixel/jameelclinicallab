@@ -21,7 +21,11 @@ export function downloadCsv(filename: string, rows: Array<Record<string, unknown
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
-/** RFC-4180 CSV reader (quoted fields, escaped quotes, CRLF). Strips a UTF-8 BOM and the formula-guard quote added by csvCell. */
+/**
+ * RFC-4180 CSV reader (quoted fields, escaped quotes, CRLF). Strips a UTF-8 BOM and the formula-guard quote added by csvCell.
+ * Like Excel, a quote mark in the middle of a value (e.g. 5" swab) is kept as a normal character;
+ * only a quote at the very start of a value opens a quoted value.
+ */
 export function parseCsv(text: string): string[][] {
   const src = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
   const rows: string[][] = [];
@@ -40,7 +44,7 @@ export function parseCsv(text: string): string[][] {
         i++;
       } else if (ch === '"') quoted = false;
       else cur += ch;
-    } else if (ch === '"') quoted = true;
+    } else if (ch === '"' && cur === '') quoted = true;
     else if (ch === ',') endField();
     else if (ch === '\n' || ch === '\r') {
       if (ch === '\r' && src[i + 1] === '\n') i++;
