@@ -8,12 +8,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox, Input, Select, Switch } from '@/components/ui/form-controls';
-import { Skeleton } from '@/components/ui/misc';
 import { useApi } from '@/hooks/use-api';
 import { errorMessage } from '@/lib/api-client';
 import { downloadCsv, parseCsv } from '@/lib/csv';
 import { cn, formatMoney, todayKey } from '@/lib/utils';
 import { catalogService, type RateListRow } from '@/services/lab.service';
+import { BrandLoader } from '@/components/shared/brand-loader';
 
 const PAGE = 100;
 
@@ -135,7 +135,7 @@ export function PriceList({ editable }: { editable: boolean }) {
         {state.error ? (
           <p className="text-sm text-destructive">{errorMessage(state.error)} <button className="underline" onClick={() => void state.reload()}>Retry</button></p>
         ) : !data ? (
-          <Skeleton className="h-64" />
+          <BrandLoader size="section" label="Loading price list…" />
         ) : (
           <>
             <p className="text-xs text-muted-foreground">{filtered.length} of {data.tests.length} tests</p>

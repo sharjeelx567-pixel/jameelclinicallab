@@ -5,11 +5,11 @@ import Link from 'next/link';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/form-controls';
-import { Skeleton } from '@/components/ui/misc';
 import { useApi, useDebounced } from '@/hooks/use-api';
 import { titleCase } from '@/lib/utils';
 import { patientsService } from '@/services/patients.service';
 import type { Patient } from '@/types';
+import { Spinner } from '@/components/shared/brand-loader';
 
 /** Find an existing patient by MR number, name, mobile or CNIC. */
 export function PatientPicker({ value, onChange }: { value: Patient | null; onChange: (p: Patient | null) => void }) {
@@ -32,7 +32,7 @@ export function PatientPicker({ value, onChange }: { value: Patient | null; onCh
         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search MR number, name, mobile or CNIC" className="pl-9" aria-label="Find patient" autoFocus />
       </div>
-      {results.loading && debounced.length >= 2 && <Skeleton className="h-12" />}
+      {results.loading && debounced.length >= 2 && <p className="flex items-center gap-2 px-1 py-2 text-sm text-muted-foreground"><Spinner className="text-primary" /> Searching…</p>}
       {results.data && (
         <ul className="divide-y rounded-lg border">
           {results.data.items.length === 0 && (

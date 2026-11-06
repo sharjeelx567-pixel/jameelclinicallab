@@ -108,6 +108,65 @@
 .loader-shimmer { animation: loader-shimmer 2.6s linear infinite; }
 .loader-bar { animation: loader-bar 1.4s ease-in-out infinite; }
 
+/* ─── App-wide motion ─────────────────────────────────────────────────────── */
+@keyframes page-enter { from { opacity: 0; transform: translateY(14px) scale(0.985); filter: blur(6px); } }
+.page-enter { animation: page-enter 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards; transform-origin: 50% 0; }
+
+/* Cards rise in, staggered by position among their siblings */
+@keyframes card-in { from { opacity: 0; transform: translateY(16px) scale(0.98); } }
+.card-in { animation: card-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+.card-in:nth-child(2) { animation-delay: 60ms; }
+.card-in:nth-child(3) { animation-delay: 120ms; }
+.card-in:nth-child(4) { animation-delay: 180ms; }
+.card-in:nth-child(5) { animation-delay: 240ms; }
+.card-in:nth-child(6) { animation-delay: 300ms; }
+.card-in:nth-child(7) { animation-delay: 360ms; }
+.card-in:nth-child(n + 8) { animation-delay: 420ms; }
+.card-hover { transition: box-shadow 0.3s ease, border-color 0.3s ease; }
+.card-hover:hover { border-color: hsl(var(--primary) / 0.28); box-shadow: var(--shadow-card), 0 14px 40px -18px hsl(var(--primary) / 0.45); }
+
+/* Table rows slide in one after another */
+@keyframes row-in { from { opacity: 0; transform: translateX(-10px); } }
+tbody > tr { animation: row-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+tbody > tr:nth-child(2) { animation-delay: 30ms; }
+tbody > tr:nth-child(3) { animation-delay: 60ms; }
+tbody > tr:nth-child(4) { animation-delay: 90ms; }
+tbody > tr:nth-child(5) { animation-delay: 120ms; }
+tbody > tr:nth-child(6) { animation-delay: 150ms; }
+tbody > tr:nth-child(7) { animation-delay: 180ms; }
+tbody > tr:nth-child(8) { animation-delay: 210ms; }
+tbody > tr:nth-child(9) { animation-delay: 240ms; }
+tbody > tr:nth-child(10) { animation-delay: 270ms; }
+tbody > tr:nth-child(11) { animation-delay: 300ms; }
+tbody > tr:nth-child(12) { animation-delay: 330ms; }
+tbody > tr:nth-child(13) { animation-delay: 360ms; }
+tbody > tr:nth-child(14) { animation-delay: 390ms; }
+tbody > tr:nth-child(15) { animation-delay: 420ms; }
+tbody > tr:nth-child(n + 16) { animation-delay: 450ms; }
+
+/* Light sweep across primary buttons on hover */
+.btn-shine { position: relative; overflow: hidden; isolation: isolate; }
+.btn-shine::after {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(110deg, transparent 30%, rgb(255 255 255 / 0.35) 50%, transparent 70%);
+  transform: translateX(-120%); transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.btn-shine:hover::after { transform: translateX(120%); }
+
+/* Active sidebar item: slow moving sheen */
+@keyframes nav-sheen { 0% { background-position: -200% 0; } 60%, 100% { background-position: 200% 0; } }
+.nav-active-sheen { background: linear-gradient(100deg, transparent 35%, rgb(255 255 255 / 0.22) 50%, transparent 65%) no-repeat; background-size: 200% 100%; animation: nav-sheen 3.5s ease-in-out infinite; }
+
+/* Top route progress bar */
+@keyframes route-run { 0% { width: 0; } 30% { width: 45%; } 100% { width: 88%; } }
+.route-progress-run { animation: route-run 6s cubic-bezier(0.1, 0.8, 0.2, 1) forwards; }
+.route-progress-done { width: 100%; opacity: 0; transition: width 0.2s ease, opacity 0.35s ease 0.15s; }
+
+/* Printouts never animate */
+@media print {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

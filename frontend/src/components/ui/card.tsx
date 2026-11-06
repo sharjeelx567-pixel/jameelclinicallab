@@ -2,7 +2,7 @@ import * as React from 'react';
 import { cn } from '@/lib/utils';
 
 export const Card = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn('min-w-0 glass rounded-2xl text-card-foreground ', className)} {...props} />
+  <div className={cn('card-in card-hover min-w-0 glass rounded-2xl text-card-foreground', className)} {...props} />
 );
 
 export const CardHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (

@@ -3,9 +3,9 @@
 import { AlertTriangle, Lock, RefreshCw, type LucideIcon } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/misc';
 import { ApiError } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
+import { BrandLoader } from './brand-loader';
 import { EmptyTubeIllustration } from './illustrations';
 
 export function PageHeader({ title, description, actions, badge }: { title: string; description?: React.ReactNode; actions?: React.ReactNode; badge?: React.ReactNode }) {
@@ -59,24 +59,13 @@ export function ErrorState({ error, onRetry, className }: { error: unknown; onRe
   );
 }
 
+/** Loading state: brand spinner. Few rows = inside a card; many rows = whole page. */
 export function LoadingRows({ rows = 6, className }: { rows?: number; className?: string }) {
-  return (
-    <div className={cn('space-y-2', className)} aria-busy aria-label="Loading">
-      {Array.from({ length: rows }, (_, i) => (
-        <Skeleton key={i} className="h-12 w-full" />
-      ))}
-    </div>
-  );
+  return <BrandLoader size={rows <= 3 ? 'section' : 'page'} className={className} />;
 }
 
-export function LoadingCards({ count = 4 }: { count?: number }) {
-  return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-busy aria-label="Loading">
-      {Array.from({ length: count }, (_, i) => (
-        <Skeleton key={i} className="h-28 rounded-xl" />
-      ))}
-    </div>
-  );
+export function LoadingCards({ className }: { count?: number; className?: string }) {
+  return <BrandLoader size="page" label="Loading dashboard…" className={className} />;
 }
 
 /** Renders loading / error / content consistently. */

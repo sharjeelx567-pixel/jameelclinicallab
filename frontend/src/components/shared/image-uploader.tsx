@@ -1,8 +1,9 @@
 'use client';
 
-import { AlertCircle, ImagePlus, Loader2, RefreshCw, Trash2, Upload } from 'lucide-react';
+import { AlertCircle, ImagePlus, RefreshCw, Trash2, Upload } from 'lucide-react';
 import * as React from 'react';
 import { toast } from 'sonner';
+import { Spinner } from '@/components/shared/brand-loader';
 import { CloudImage } from '@/components/shared/cloud-image';
 import { ConfirmDialog } from '@/components/shared/dialogs';
 import { Button } from '@/components/ui/button';
@@ -152,7 +153,7 @@ export function ImageUploader({ category, ownerId, current, editable, onChange, 
           )}
           {busy && (
             <span className="absolute inset-0 grid place-items-center bg-background/70 text-xs font-semibold">
-              <Loader2 className="mb-1 size-5 animate-spin text-primary" />
+              <Spinner className="mb-1 size-5 text-primary" />
             </span>
           )}
         </button>
@@ -307,7 +308,7 @@ export function MediaGallery({ category, editable }: { category: Extract<MediaCa
           {items.map((a) => (
             <figure key={a.id} className="group relative aspect-[4/3] overflow-hidden rounded-2xl border bg-background/40">
               <CloudImage src={a.secureUrl} alt={a.alt ?? a.originalName} fill sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw" className="object-cover" />
-              {replacing === a.id && <span className="absolute inset-0 grid place-items-center bg-background/70"><Loader2 className="size-5 animate-spin text-primary" /></span>}
+              {replacing === a.id && <span className="absolute inset-0 grid place-items-center bg-background/70"><Spinner className="size-5 text-primary" /></span>}
               <figcaption className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/70 to-transparent px-2.5 pb-1.5 pt-5 text-[11px] text-white">{a.originalName} · {a.width}×{a.height}</figcaption>
               {editable && (
                 <div className="absolute right-1.5 top-1.5 flex gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">

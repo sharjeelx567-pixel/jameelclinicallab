@@ -10,7 +10,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox, Field, Input, Select, Textarea } from '@/components/ui/form-controls';
-import { Skeleton } from '@/components/ui/misc';
 import { PAYMENT_METHODS } from '@/constants';
 import { useAuth } from '@/features/auth/auth-provider';
 import { useApi } from '@/hooks/use-api';
@@ -21,6 +20,7 @@ import { homeSamplingService } from '@/services/admin.service';
 import { catalogService, ordersService, type OrderQuote } from '@/services/lab.service';
 import { doctorsService, patientsService } from '@/services/patients.service';
 import type { Patient, PaymentMethod, Priority } from '@/types';
+import { BrandLoader } from '@/components/shared/brand-loader';
 
 function NewOrderForm() {
   const router = useRouter();
@@ -146,7 +146,7 @@ function NewOrderForm() {
                 </Select>
               </div>
               {tests.loading ? (
-                <Skeleton className="h-40" />
+                <BrandLoader size="section" label="Loading tests…" />
               ) : (
                 <ul className="scrollbar-thin grid max-h-[420px] grid-cols-1 gap-2 overflow-y-auto pr-1 md:grid-cols-2">
                   {visibleTests.map((t) => {

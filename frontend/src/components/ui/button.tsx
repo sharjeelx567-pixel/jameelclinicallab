@@ -1,7 +1,7 @@
 import { Slot } from '@radix-ui/react-slot';
 import { cva, type VariantProps } from 'class-variance-authority';
-import { Loader2 } from 'lucide-react';
 import * as React from 'react';
+import { Spinner } from '@/components/shared/brand-loader';
 import { cn } from '@/lib/utils';
 
 export const buttonVariants = cva(
@@ -9,12 +9,12 @@ export const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: 'bg-gradient-to-r from-primary to-brand-2 text-primary-foreground shadow-glow hover:brightness-110',
+        default: 'btn-shine bg-gradient-to-r from-primary to-brand-2 bg-[length:150%_100%] bg-left text-primary-foreground shadow-glow hover:-translate-y-px hover:bg-right hover:shadow-[0_10px_30px_-8px_hsl(var(--primary)/0.6)]',
         secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
         outline: 'border border-input bg-background/40 backdrop-blur hover:border-primary/40 hover:bg-muted/60',
         ghost: 'hover:bg-muted',
         destructive: 'bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90',
-        success: 'bg-success text-white shadow-sm hover:bg-success/90',
+        success: 'btn-shine bg-success text-white shadow-sm hover:-translate-y-px hover:bg-success/90',
         link: 'text-primary underline-offset-4 hover:underline px-0',
       },
       size: {
@@ -43,7 +43,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           children
         ) : (
           <>
-            {loading && <Loader2 className="animate-spin" aria-hidden />}
+            {loading && <Spinner />}
             {children}
           </>
         )}

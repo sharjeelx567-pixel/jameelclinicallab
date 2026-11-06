@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Field, Input, Select } from '@/components/ui/form-controls';
-import { Skeleton, Tabs, TabsList, TabsTrigger } from '@/components/ui/misc';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/misc';
 import { PAYMENT_METHODS, PROVINCES } from '@/constants';
 import { useAuth } from '@/features/auth/auth-provider';
 import { useApi } from '@/hooks/use-api';
@@ -26,6 +26,7 @@ import { settingsService } from '@/services/admin.service';
 import { catalogService, ordersService, type CatalogTest } from '@/services/lab.service';
 import { doctorsService, patientsService } from '@/services/patients.service';
 import type { DuplicateCandidate, Patient, PaymentMethod } from '@/types';
+import { BrandLoader } from '@/components/shared/brand-loader';
 
 const reportTime = (t: CatalogTest) => t.reportingTime ? titleCase(t.reportingTime.toLowerCase()) : t.turnaroundHours <= 12 ? 'Same day' : `${Math.round(t.turnaroundHours / 24)} day(s)`;
 
@@ -283,7 +284,7 @@ export default function RegisterAndBillPage() {
                 </Select></div>
               </div>
 
-              {catalog.loading && !catalog.data ? <Skeleton className="h-24" /> : catalog.error ? <p className="text-sm text-destructive">{errorMessage(catalog.error)}</p> : null}
+              {catalog.loading && !catalog.data ? <BrandLoader size="section" label="Loading tests…" /> : catalog.error ? <p className="text-sm text-destructive">{errorMessage(catalog.error)}</p> : null}
 
               {matches.length > 0 && (
                 <ul className="max-h-72 divide-y overflow-y-auto rounded-xl border" aria-label="Matching tests">

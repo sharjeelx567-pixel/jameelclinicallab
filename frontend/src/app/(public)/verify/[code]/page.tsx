@@ -3,17 +3,17 @@
 import { BadgeCheck, ShieldX, TriangleAlert } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { DetailList, ErrorState } from '@/components/shared/states';
-import { Skeleton } from '@/components/ui/misc';
 import { useApi } from '@/hooks/use-api';
 import { formatDateTime, titleCase } from '@/lib/utils';
 import { reportsService } from '@/services/lab.service';
+import { BrandLoader } from '@/components/shared/brand-loader';
 
 /** Public authenticity check for printed reports (QR code). Shows no clinical results. */
 export default function VerifyReportPage() {
   const { code } = useParams<{ code: string }>();
   const state = useApi(() => reportsService.verify(code), [code]);
   if (state.error) return <ErrorState error={state.error} onRetry={state.reload} />;
-  if (!state.data) return <Skeleton className="h-48 w-full rounded-xl" />;
+  if (!state.data) return <BrandLoader size="section" label="Checking report…" />;
   const r = state.data;
   if (!r.valid)
     return (

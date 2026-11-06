@@ -1,5 +1,6 @@
 'use client';
 
+import { LayoutGroup, motion } from 'framer-motion';
 import { Bell, ChevronRight, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Search, UserRound } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -17,12 +18,15 @@ import { AUTH_MODE, useAuth } from '@/features/auth/auth-provider';
 import { useApi } from '@/hooks/use-api';
 import { cn, timeAgo } from '@/lib/utils';
 import { authService, notificationsService } from '@/services/admin.service';
+import { RouteProgress } from './route-progress';
 import { ThemeToggle } from './theme';
 
 function SidebarNav({ collapsed, onNavigate }: { collapsed?: boolean; onNavigate?: () => void }) {
   const pathname = usePathname();
   const { can } = useAuth();
+  const group = React.useId();
   return (
+    <LayoutGroup id={group}>
     <nav className="scrollbar-thin min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-3 py-4" aria-label="Main">
       {NAV.map((group) => {
         const items = group.items.filter((i) => !i.permission || can(i.permission));
@@ -41,13 +45,18 @@ function SidebarNav({ collapsed, onNavigate }: { collapsed?: boolean; onNavigate
                       title={collapsed ? item.label : undefined}
                       aria-current={active ? 'page' : undefined}
                       className={cn(
-                        'group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/80 transition-colors hover:bg-white/[0.06] hover:text-white',
-                        active && 'bg-gradient-to-r from-primary/90 to-brand-2/80 text-white shadow-glow',
+                        'group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/80 transition-[color,background-color,transform] duration-200 hover:translate-x-0.5 hover:bg-white/[0.06] hover:text-white',
+                        active && 'text-white hover:translate-x-0 hover:bg-transparent',
                         collapsed && 'justify-center px-0',
                       )}
                     >
-                      <item.icon className={cn('size-[18px] shrink-0', active ? 'text-white' : 'text-sidebar-muted group-hover:text-white')} aria-hidden />
-                      {!collapsed && <span className="truncate">{item.label}</span>}
+                      {active && (
+                        <motion.span layoutId="nav-active" className="absolute inset-0 rounded-lg bg-gradient-to-r from-primary/90 to-brand-2/80 shadow-glow" transition={{ type: 'spring', stiffness: 420, damping: 34 }} aria-hidden>
+                          <span className="nav-active-sheen absolute inset-0 rounded-lg" />
+                        </motion.span>
+                      )}
+                      <item.icon className={cn('relative size-[18px] shrink-0 transition-transform duration-200 group-hover:scale-110', active ? 'text-white' : 'text-sidebar-muted group-hover:text-white')} aria-hidden />
+                      {!collapsed && <span className="relative truncate">{item.label}</span>}
                     </Link>
                   </li>
                 );
@@ -57,6 +66,7 @@ function SidebarNav({ collapsed, onNavigate }: { collapsed?: boolean; onNavigate
         );
       })}
     </nav>
+    </LayoutGroup>
   );
 }
 
@@ -220,6 +230,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="relative flex min-h-dvh">
+      <React.Suspense fallback={null}>
+        <RouteProgress />
+      </React.Suspense>
       <AnimatedBackground />
       {/* Desktop sidebar */}
       <aside className={cn('no-print sticky top-3 m-3 mr-0 hidden h-[calc(100dvh-1.5rem)] shrink-0 flex-col overflow-hidden rounded-3xl border border-white/[0.07] bg-sidebar/95 shadow-elevated backdrop-blur-xl transition-[width] duration-300 ease-smooth lg:flex', collapsed ? 'w-[76px]' : 'w-64')}>
