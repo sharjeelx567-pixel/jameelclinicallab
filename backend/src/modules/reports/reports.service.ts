@@ -182,20 +182,22 @@ export class ReportsService {
   async pdf(id: string, actor: AuthUser): Promise<{ buffer: Buffer; filename: string }> {
     const report = await this.recordPrint(id, 'pdf', actor);
     const settings = await this.settings.get();
-    let logo: Buffer | undefined;
-    try {
-      if (settings.logo) {
-        // PDFKit embeds PNG/JPEG only, so ask Cloudinary for a PNG at print size.
-        const res = await fetch(transformUrl(settings.logo.secureUrl, 'f_png,w_600,c_limit'), { signal: AbortSignal.timeout(8000) });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        logo = Buffer.from(await res.arrayBuffer());
-      } else if (settings.logoPath) logo = await this.storage.download(settings.logoPath);
-    } catch (err) {
-      this.logger.warn(`Logo unavailable for report PDF: ${(err as Error).message}`);
+    // The round JCL logo shipped with the app (backend/assets/jcl-logo-round.png) is always
+    // preferred: it shows the whole logo inside the circle. An uploaded logo is only a fallback.
+    let logo = bundledLogo();
+    const logoIsRound = !!logo;
+    if (!logo) {
+      try {
+        if (settings.logo) {
+          // PDFKit embeds PNG/JPEG only, so ask Cloudinary for a PNG at print size.
+          const res = await fetch(transformUrl(settings.logo.secureUrl, 'f_png,w_600,c_limit'), { signal: AbortSignal.timeout(8000) });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          logo = Buffer.from(await res.arrayBuffer());
+        } else if (settings.logoPath) logo = await this.storage.download(settings.logoPath);
+      } catch (err) {
+        this.logger.warn(`Logo unavailable for report PDF: ${(err as Error).message}`);
+      }
     }
-    // Default: the laboratory logo shipped with the app (backend/assets/jcl-logo-round.png).
-    const logoIsRound = !logo;
-    logo ??= bundledLogo();
     const buffer = await renderReportPdf(report, getEnv().REPORT_VERIFY_BASE_URL, logo, { signatories: settings.reportSignatories, phone: settings.phone, address: settings.address, logoIsRound });
     return { buffer, filename: `${report.reportNumber}-v${report.version}.pdf` };
   }

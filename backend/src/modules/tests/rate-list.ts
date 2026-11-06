@@ -7,11 +7,11 @@
 import { z } from 'zod';
 
 export const RateRow = z.object({
-  code: z.string().trim().min(1).max(20),
-  name: z.string().trim().min(1).max(120),
-  price: z.coerce.number().min(0).max(10_000_000),
-  sample: z.string().trim().max(60).default(''),
-  reportingTime: z.string().trim().max(60).default(''),
+  code: z.string().trim().min(1, 'code is empty').max(40, 'code is longer than 40 characters'),
+  name: z.string().trim().min(1, 'test name is empty').max(200, 'test name is longer than 200 characters'),
+  price: z.coerce.number({ error: 'price is not a number' }).min(0, 'price is negative').max(10_000_000, 'price is too large'),
+  sample: z.string().trim().max(200, 'sample is longer than 200 characters').default(''),
+  reportingTime: z.string().trim().max(120, 'reporting time is longer than 120 characters').default(''),
 });
 export type RateRowInput = z.infer<typeof RateRow>;
 

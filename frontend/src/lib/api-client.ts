@@ -129,4 +129,16 @@ async function uploadWithProgress<T>(
   });
 }
 
-export const errorMessage = (err: unknown) => (err instanceof ApiError ? err.message : err instanceof Error ? err.message : 'Something went wrong');
+/** Readable message; for validation errors it names the first problem field, e.g. "Row 14 (rows.12.sample): …". */
+export const errorMessage = (err: unknown) => {
+  if (err instanceof ApiError) {
+    const first = Object.entries(err.fieldErrors)[0];
+    if (!first) return err.message;
+    const [path, msg] = first;
+    const row = /^rows.(d+)(?:.(w+))?/.exec(path);
+    const where = row ? `Row ${Number(row[1]) + 2} of the file${row[2] ? ` (${row[2]})` : ''}` : path;
+    const more = Object.keys(err.fieldErrors).length - 1;
+    return `${err.message}: ${where} — ${msg}${more > 0 ? ` (and ${more} more)` : ''}`;
+  }
+  return err instanceof Error ? err.message : 'Something went wrong';
+};

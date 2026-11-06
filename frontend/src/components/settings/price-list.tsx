@@ -88,15 +88,31 @@ export function PriceList({ editable }: { editable: boolean }) {
       const col = (n: string) => header.findIndex((h) => h.trim().toLowerCase() === n.toLowerCase());
       const c = { code: col('code'), name: col('name'), price: col('price'), sample: col('sample'), reportingTime: col('reportingTime') };
       if (c.code < 0 || c.name < 0 || c.price < 0) throw new Error('The CSV needs the columns: code, name, price (optional: sample, reportingTime)');
-      const rows = lines.map((l, i) => {
-        const price = Number(String(l[c.price]).replace(/,/g, ''));
-        if (!l[c.code]?.trim() || !l[c.name]?.trim() || !Number.isFinite(price) || price < 0) throw new Error(`Row ${i + 2} is incomplete or has an invalid price`);
-        return { code: l[c.code].trim(), name: l[c.name].trim(), price, sample: c.sample >= 0 ? l[c.sample]?.trim() : undefined, reportingTime: c.reportingTime >= 0 ? l[c.reportingTime]?.trim() : undefined };
+      const problems: string[] = [];
+      const rows: RateListRow[] = [];
+      lines.forEach((l, i) => {
+        if (l.every((v) => !v?.trim())) return; // blank line (Excel often adds these)
+        const n = i + 2;
+        const code = (l[c.code] ?? '').trim();
+        const name = (l[c.name] ?? '').trim();
+        const rawPrice = String(l[c.price] ?? '').replace(/[,s]|rs.?/gi, '');
+        const price = Number(rawPrice);
+        const sample = c.sample >= 0 ? (l[c.sample] ?? '').trim() : undefined;
+        const reportingTime = c.reportingTime >= 0 ? (l[c.reportingTime] ?? '').trim() : undefined;
+        if (!code) problems.push(`Row ${n}: code is empty`);
+        else if (code.length > 40) problems.push(`Row ${n}: code is too long`);
+        if (!name) problems.push(`Row ${n}: test name is empty`);
+        else if (name.length > 200) problems.push(`Row ${n}: test name is too long`);
+        if (!rawPrice || !Number.isFinite(price) || price < 0) problems.push(`Row ${n}: price "${l[c.price] ?? ''}" is not a valid number`);
+        if (sample && sample.length > 200) problems.push(`Row ${n}: sample text is too long`);
+        if (reportingTime && reportingTime.length > 120) problems.push(`Row ${n}: reporting time is too long`);
+        rows.push({ code, name, price, sample, reportingTime });
       });
+      if (problems.length) throw new Error(`Fix these rows in the file and import again: ${problems.slice(0, 5).join('; ')}${problems.length > 5 ? ` … and ${problems.length - 5} more` : ''}`);
       if (!rows.length) throw new Error('The CSV has no rows');
       setImportRows(rows);
     } catch (err) {
-      toast.error(errorMessage(err));
+      toast.error(errorMessage(err), { duration: 12000 });
     }
   };
 
@@ -203,7 +219,7 @@ export function PriceList({ editable }: { editable: boolean }) {
             setImportRows(null);
             await state.reload();
           } catch (err) {
-            toast.error(errorMessage(err));
+            toast.error(errorMessage(err), { duration: 12000 });
           }
         }}
       >
