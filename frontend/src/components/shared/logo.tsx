@@ -13,8 +13,8 @@ export function LogoMark({ className }: { className?: string }) {
 /** Round logo + lab name, for the app sidebar, header and sign-in page. */
 export function Logo({ className, collapsed, inverted }: { className?: string; collapsed?: boolean; inverted?: boolean }) {
   return (
-    <div className={cn('flex min-w-0 items-center gap-2.5', className)}>
-      <LabLogoMark className="size-10 shrink-0" />
+    <div className={cn('flex min-w-0 items-center gap-3', className)}>
+      <LabLogoMark className="size-11 shrink-0" glow />
       {!collapsed && (
         <div className="min-w-0 leading-tight">
           <p className={cn('truncate font-display text-[13px] font-bold tracking-wide', inverted ? 'text-white' : 'text-foreground')}>JAMEEL CLINICAL</p>

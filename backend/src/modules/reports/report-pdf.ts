@@ -24,7 +24,7 @@ export async function renderReportPdf(
   verifyUrl: string,
   logo?: Buffer,
   /** Current letterhead settings, used when the report was generated before they were set. */
-  current: { signatories?: Array<{ name: string; qualification?: string }>; phone?: string; address?: string } = {},
+  current: { signatories?: Array<{ name: string; qualification?: string }>; phone?: string; address?: string; logoIsRound?: boolean } = {},
 ): Promise<Buffer> {
   const s = { ...report.snapshot, lab: { ...report.snapshot.lab, phone: report.snapshot.lab.phone || current.phone || '', address: report.snapshot.lab.address || current.address || '' } };
   const qr = await QRCode.toBuffer(`${verifyUrl}/${report.verificationCode}`, { margin: 0, width: 140 });
@@ -49,7 +49,8 @@ export async function renderReportPdf(
         const r = 35;
         const cx = left + r;
         const cy = top + r;
-        const inner = r * 0.84;
+        // A pre-made round logo fills the circle; any other image fits inside it whole.
+        const inner = current.logoIsRound ? r : r * 0.7;
         doc.save();
         doc.circle(cx, cy, r).fill('#ffffff');
         doc.circle(cx, cy, r).clip();

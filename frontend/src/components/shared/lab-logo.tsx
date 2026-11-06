@@ -11,7 +11,7 @@ let logoPromise: Promise<MediaRef | null> | null = null;
 export { BUNDLED_LOGO };
 
 /** The laboratory logo: the one uploaded in Settings (Cloudinary), else the bundled logo file. */
-export function LabLogoMark({ className, alt = '' }: { className?: string; alt?: string }) {
+export function LabLogoMark({ className, alt = '', glow }: { className?: string; alt?: string; glow?: boolean }) {
   const [logo, setLogo] = React.useState<MediaRef | null>(null);
   const [failed, setFailed] = React.useState<false | 'uploaded' | 'all'>(false);
   const { status } = useAuth();
@@ -29,5 +29,5 @@ export function LabLogoMark({ className, alt = '' }: { className?: string; alt?:
   }, [status]);
   // Uploaded logo (Settings) wins; otherwise the laboratory logo shipped with the app.
   const src = logo && !failed ? optimizedImageUrl(logo.secureUrl, { width: 320, height: 320, crop: 'fit' }) : BUNDLED_LOGO;
-  return <RoundLogo src={src} alt={alt} className={className} onError={() => setFailed(src === BUNDLED_LOGO ? 'all' : 'uploaded')} />;
+  return <RoundLogo src={src} alt={alt} className={className} glow={glow} onError={() => setFailed(src === BUNDLED_LOGO ? 'all' : 'uploaded')} />;
 }

@@ -15,10 +15,10 @@ import { formatRange } from '../tests/reference-range';
 import { renderReportPdf } from './report-pdf';
 
 let cachedLogo: Buffer | null | undefined;
-/** Read once; works from src (ts-node) and dist, and on Vercel via vercel.json includeFiles. */
+/** The bundled logo, already drawn as a full circle (whole logo inside). Read once; works from src (ts-node) and dist, and on Vercel via vercel.json includeFiles. */
 function bundledLogo(): Buffer | undefined {
   if (cachedLogo === undefined) {
-    const file = join(__dirname, '../../../assets/jcl-logo.png');
+    const file = join(__dirname, '../../../assets/jcl-logo-round.png');
     cachedLogo = existsSync(file) ? readFileSync(file) : null;
   }
   return cachedLogo ?? undefined;
@@ -193,9 +193,10 @@ export class ReportsService {
     } catch (err) {
       this.logger.warn(`Logo unavailable for report PDF: ${(err as Error).message}`);
     }
-    // Default: the laboratory logo shipped with the app (backend/assets/jcl-logo.png).
+    // Default: the laboratory logo shipped with the app (backend/assets/jcl-logo-round.png).
+    const logoIsRound = !logo;
     logo ??= bundledLogo();
-    const buffer = await renderReportPdf(report, getEnv().REPORT_VERIFY_BASE_URL, logo, { signatories: settings.reportSignatories, phone: settings.phone, address: settings.address });
+    const buffer = await renderReportPdf(report, getEnv().REPORT_VERIFY_BASE_URL, logo, { signatories: settings.reportSignatories, phone: settings.phone, address: settings.address, logoIsRound });
     return { buffer, filename: `${report.reportNumber}-v${report.version}.pdf` };
   }
 

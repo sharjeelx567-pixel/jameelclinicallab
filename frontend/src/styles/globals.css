@@ -162,6 +162,20 @@ tbody > tr:nth-child(n + 16) { animation-delay: 450ms; }
 .route-progress-run { animation: route-run 6s cubic-bezier(0.1, 0.8, 0.2, 1) forwards; }
 .route-progress-done { width: 100%; opacity: 0; transition: width 0.2s ease, opacity 0.35s ease 0.15s; }
 
+/* Glowing logo ring: spinning rainbow of brand colours + breathing halo */
+@keyframes logo-halo {
+  0%, 100% { box-shadow: 0 0 8px 1px hsl(var(--brand-1) / 0.6), 0 0 22px 4px hsl(var(--brand-2) / 0.35); }
+  50% { box-shadow: 0 0 14px 3px hsl(var(--highlight) / 0.6), 0 0 34px 9px hsl(var(--brand-1) / 0.45); }
+}
+.logo-glow-ring {
+  background: conic-gradient(from 0deg, hsl(var(--brand-1)), hsl(var(--brand-2)), #34d399, hsl(var(--highlight)), #f472b6, hsl(var(--brand-1)));
+  animation: loader-spin 3.2s linear infinite, logo-halo 2.6s ease-in-out infinite;
+}
+.logo-glow-ring::after {
+  content: ""; position: absolute; inset: -5px; z-index: -1; border-radius: inherit;
+  background: inherit; filter: blur(9px); opacity: 0.75;
+}
+
 /* Printouts never animate */
 @media print {
   *, *::before, *::after { animation: none !important; transition: none !important; }
