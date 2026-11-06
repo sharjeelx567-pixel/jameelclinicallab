@@ -27,6 +27,10 @@ export const catalogService = {
   /** Whole catalogue (prices, samples, reporting times) in one request. */
   index: () => api.get<CatalogIndex>('/tests/catalog'),
   updatePrices: (changes: Array<{ testId: string; price: number }>) => api.put<{ updated: number }>('/tests/prices', { changes }),
+  rangesTemplate: () => api.get<Array<Record<string, string | number>>>('/tests/ranges/template'),
+  draftRanges: () => api.get<{ drafts: number }>('/tests/ranges/drafts'),
+  importRanges: (rows: RangeImportRow[]) => api.post<{ rows: number; testsChanged: number; rangesWritten: number; unitsSet: number; problems: string[] }>('/tests/ranges/import', { rows }),
+  approveAllDrafts: () => api.post<{ tests: number; approved: number }>('/tests/ranges/approve-drafts'),
   importRateList: (rows: RateListRow[], updateNames = false) =>
     api.post<{ rows: number; created: number; updated: number; unchanged: number }>('/tests/import', { rows, updateNames }),
 };
@@ -126,3 +130,18 @@ export const reportsService = {
       `/reports/verify/${encodeURIComponent(code)}`,
     ),
 };
+
+/** One filled row of the normal-ranges spreadsheet (empty cells are sent as ''). */
+export interface RangeImportRow {
+  code: string;
+  parameter: string;
+  unit?: string;
+  gender?: string;
+  ageFrom?: string;
+  ageTo?: string;
+  low?: string;
+  high?: string;
+  text?: string;
+  criticalLow?: string;
+  criticalHigh?: string;
+}

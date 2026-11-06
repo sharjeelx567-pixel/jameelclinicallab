@@ -62,3 +62,35 @@ describe('rate list import', () => {
     expect((await tests.catalog()).tests.find((t) => t.id === a.id)!.price).toBe(a.price + 100);
   });
 });
+
+describe('reference range spreadsheet import', () => {
+  it('creates draft ranges and units, approves them in bulk, and keeps identical approved ranges on re-import', async () => {
+    const { RangeImportRow } = await import('./rate-list');
+    const store = new MemoryDataStore();
+    const tests = new TestsService(store, new AuditService(store));
+    await tests.importRateList(rows.filter((r) => ['1300', '2704'].includes(r.code)), actor);
+    // Fixture numbers for the test only — not clinical reference values.
+    const sheet = [
+      { code: '1300', parameter: 'Hemoglobin', unit: 'g/dL', gender: 'M', low: '13', high: '17' },
+      { code: '1300', parameter: 'Hemoglobin', unit: 'g/dL', gender: 'F', low: '12', high: '15' },
+      { code: '2704', parameter: 'Uric Acid (Serum)', unit: 'mg/dL', gender: '', low: '2.4', high: '5.7' },
+      { code: '9999', parameter: 'X', gender: '' },
+    ].map((r) => RangeImportRow.parse(r));
+    const res = await tests.importRanges(sheet, actor);
+    expect(res).toMatchObject({ testsChanged: 2, rangesWritten: 3, unitsSet: 1 }); // CBC already had g/dL
+    expect(res.problems).toEqual(['Code 9999: test not found']);
+
+    const uric = (await store.query<TestDoc>(C.tests, { where: [{ field: 'code', op: '==', value: '2704' }] })).items[0];
+    expect(uric.parameters[0]).toMatchObject({ unit: 'mg/dL', inputType: 'numeric' });
+    expect(uric.parameters[0].ranges[0]).toMatchObject({ gender: 'any', low: 2.4, high: 5.7, status: 'draft' });
+
+    expect(await tests.draftRangeCount()).toBe(3);
+    expect(await tests.approveAllDraftRanges(actor)).toEqual({ tests: 2, approved: 3 });
+    expect(await tests.draftRangeCount()).toBe(0);
+
+    await tests.importRanges(sheet.slice(0, 3), actor);
+    expect(await tests.draftRangeCount()).toBe(0); // unchanged ranges stay approved
+    await tests.importRanges([RangeImportRow.parse({ code: '2704', parameter: 'Result', gender: 'any', low: '2.5', high: '5.7' })], actor);
+    expect(await tests.draftRangeCount()).toBe(1); // changed range needs approval again
+  });
+});

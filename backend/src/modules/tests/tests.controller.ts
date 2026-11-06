@@ -4,13 +4,15 @@ import { z } from 'zod';
 import type { AuthUser } from '../../common/types';
 import { ApiZodBody, ApiZodQuery, CurrentUser, RequirePermissions, ZodBody, ZodQuery } from '../../decorators';
 import { patchOf } from '../../utils';
-import { RateRow } from './rate-list';
+import { RangeImportRow, RateRow } from './rate-list';
 import { CategoryDto, TestDto, TestQuery, TestsService } from './tests.service';
 
 const PricesDto = z.object({
   changes: z.array(z.object({ testId: z.string().min(1).max(64), price: z.number().min(0).max(10_000_000) })).min(1).max(2000),
 });
 const ImportDto = z.object({ rows: z.array(RateRow).min(1).max(3000), updateNames: z.boolean().default(false) });
+
+const RangesImportDto = z.object({ rows: z.array(RangeImportRow).min(1).max(5000) });
 
 const PartialTest = patchOf(TestDto);
 const PartialCategory = patchOf(CategoryDto);
@@ -61,6 +63,34 @@ export class TestsController {
   @ApiZodBody(ImportDto)
   importRateList(@ZodBody(ImportDto) dto: z.infer<typeof ImportDto>, @CurrentUser() user: AuthUser) {
     return this.tests.importRateList(dto.rows, user, { updateNames: dto.updateNames });
+  }
+
+  /** Spreadsheet rows: every parameter of every offered test, with existing ranges. */
+  @Get('ranges/template')
+  @RequirePermissions('tests.read')
+  rangesTemplate() {
+    return this.tests.rangesTemplate();
+  }
+
+  @Get('ranges/drafts')
+  @RequirePermissions('tests.read')
+  async draftRanges() {
+    return { drafts: await this.tests.draftRangeCount() };
+  }
+
+  /** Import units and reference ranges from the spreadsheet; new/changed ranges become drafts. */
+  @Post('ranges/import')
+  @RequirePermissions('tests.write')
+  @ApiZodBody(RangesImportDto)
+  importRanges(@ZodBody(RangesImportDto) dto: z.infer<typeof RangesImportDto>, @CurrentUser() user: AuthUser) {
+    return this.tests.importRanges(dto.rows, user);
+  }
+
+  /** Approve all draft ranges at once — qualified approver only. */
+  @Post('ranges/approve-drafts')
+  @RequirePermissions('tests.approveRanges')
+  approveDrafts(@CurrentUser() user: AuthUser) {
+    return this.tests.approveAllDraftRanges(user);
   }
 
   @Get()

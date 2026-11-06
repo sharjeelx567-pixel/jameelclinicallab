@@ -124,3 +124,28 @@ export function parametersFor(name: string): Array<{ name: string; unit?: string
   if (panel) return panel.params.map((x, i) => ({ name: x.name, unit: x.unit, inputType: 'numeric', ranges: [], sortOrder: i }));
   return [{ name: 'Result', inputType: 'text', ranges: [], sortOrder: 0 }];
 }
+
+const optNum = z.preprocess((v) => (v === '' || v === null || v === undefined ? undefined : typeof v === 'string' ? Number(v.replace(/,/g, '')) : v), z.number().finite().optional());
+const optStr = (max: number) => z.preprocess((v) => (typeof v === 'string' && v.trim() === '' ? undefined : typeof v === 'string' ? v.trim() : v), z.string().max(max).optional());
+
+/** One spreadsheet row of the reference-range import. Values come from the laboratory's own documentation. */
+export const RangeImportRow = z
+  .object({
+    code: z.string().trim().min(1).max(20),
+    parameter: z.string().trim().min(1).max(100),
+    unit: optStr(30),
+    gender: z.preprocess(
+      (v) => { const g = String(v ?? '').trim().toLowerCase(); return g === '' || g === 'any' || g === 'all' || g === 'both' ? 'any' : g === 'm' ? 'male' : g === 'f' ? 'female' : g; },
+      z.enum(['any', 'male', 'female']),
+    ),
+    ageFrom: optNum,
+    ageTo: optNum,
+    low: optNum,
+    high: optNum,
+    text: optStr(120),
+    criticalLow: optNum,
+    criticalHigh: optNum,
+  })
+  .refine((r) => r.low === undefined || r.high === undefined || r.low <= r.high, { message: 'low must not exceed high' })
+  .refine((r) => r.ageFrom === undefined || r.ageTo === undefined || r.ageFrom <= r.ageTo, { message: 'age from must not exceed age to' });
+export type RangeImportRowInput = z.infer<typeof RangeImportRow>;

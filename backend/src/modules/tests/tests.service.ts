@@ -6,7 +6,7 @@ import { AuthUser, toActor } from '../../common/types';
 import { C, DataStore, WhereClause } from '../../database/data-store';
 import { buildSearchTokens, diff, docId, mapLimit, money, normalizeSearch, optionalText, requiredText } from '../../utils';
 import { AuditService } from '../audit-logs/audit.service';
-import { containerFor, DEPARTMENTS, departmentFor, parametersFor, type RateRowInput, turnaroundHours } from './rate-list';
+import { containerFor, DEPARTMENTS, departmentFor, parametersFor, type RangeImportRowInput, type RateRowInput, turnaroundHours } from './rate-list';
 
 const RangeDto = z
   .object({
@@ -291,6 +291,100 @@ export class TestsService {
     await this.audit.record({ action: 'test.rate_list_import', entity: 'test', entityId: 'bulk', actor: toActor(actor), changes: { rows: rows.length, created, updated, unchanged } });
     await this.rebuildCatalog();
     return { rows: rows.length, created, updated, unchanged };
+  }
+
+  // ─── Bulk reference ranges (spreadsheet) ──
+
+  /** One row per parameter of every offered test (plus one row per existing range), for filling in Excel. */
+  async rangesTemplate() {
+    const tests = (await this.store.query<TestDoc>(C.tests, { where: [{ field: 'active', op: '==', value: true }] })).items.sort((a, b) => a.name.localeCompare(b.name));
+    const rows: Array<Record<string, string | number>> = [];
+    for (const t of tests)
+      for (const p of t.parameters) {
+        const base = { code: t.code, testName: t.name, parameter: p.name, unit: p.unit ?? '' };
+        if (!p.ranges.length) rows.push({ ...base, gender: 'any', ageFrom: '', ageTo: '', low: '', high: '', normalText: '', criticalLow: '', criticalHigh: '', status: '' });
+        for (const r of p.ranges)
+          rows.push({ ...base, gender: r.gender, ageFrom: r.ageMinYears ?? '', ageTo: r.ageMaxYears ?? '', low: r.low ?? '', high: r.high ?? '', normalText: r.text ?? '', criticalLow: r.criticalLow ?? '', criticalHigh: r.criticalHigh ?? '', status: r.status });
+      }
+    return rows;
+  }
+
+  /**
+   * Import ranges and units from the spreadsheet. For every parameter that has range
+   * rows in the file, its ranges are replaced by the file's rows: identical approved
+   * ranges stay approved, anything new or changed becomes DRAFT and must be approved.
+   * Rows with only a unit update the unit and leave ranges untouched.
+   */
+  async importRanges(rows: RangeImportRowInput[], actor: AuthUser) {
+    const byCode = new Map<string, RangeImportRowInput[]>();
+    for (const r of rows) byCode.set(r.code.toUpperCase(), [...(byCode.get(r.code.toUpperCase()) ?? []), r]);
+    const problems: string[] = [];
+    let testsChanged = 0, rangesWritten = 0, unitsSet = 0;
+    const rangeKey = (r: Partial<ReferenceRange>) => JSON.stringify([r.gender, r.ageMinYears, r.ageMaxYears, r.low, r.high, r.text, r.criticalLow, r.criticalHigh]);
+
+    await mapLimit([...byCode.entries()], 10, async ([code, list]) => {
+      const found = (await this.store.query<TestDoc>(C.tests, { where: [{ field: 'code', op: '==', value: code }], limit: 1 })).items[0];
+      if (!found) return void problems.push(`Code ${code}: test not found`);
+      const params = found.parameters.map((p) => ({ ...p, ranges: [...p.ranges] }));
+      let changed = false;
+      const byParam = new Map<string, RangeImportRowInput[]>();
+      for (const r of list) byParam.set(r.parameter.trim().toLowerCase(), [...(byParam.get(r.parameter.trim().toLowerCase()) ?? []), r]);
+      for (const [pname, prow] of byParam) {
+        const p = params.find((x) => x.name.toLowerCase() === pname) ?? (params.length === 1 && [found.name.toLowerCase(), 'result'].includes(pname) ? params[0] : undefined);
+        if (!p) {
+          problems.push(`Code ${code}: parameter "${prow[0].parameter}" not found in ${found.name}`);
+          continue;
+        }
+        const unit = prow.find((r) => r.unit)?.unit;
+        if (unit && unit !== p.unit) {
+          p.unit = unit;
+          unitsSet++;
+          changed = true;
+        }
+        const withRange = prow.filter((r) => r.low !== undefined || r.high !== undefined || r.text || r.criticalLow !== undefined || r.criticalHigh !== undefined);
+        if (!withRange.length) continue;
+        if (withRange.some((r) => r.low !== undefined || r.high !== undefined) && p.inputType === 'text') p.inputType = 'numeric';
+        p.ranges = withRange.map((r) => {
+          const next = { gender: r.gender, ageMinYears: r.ageFrom, ageMaxYears: r.ageTo, low: r.low, high: r.high, text: r.text, criticalLow: r.criticalLow, criticalHigh: r.criticalHigh };
+          const same = found.parameters.find((x) => x.id === p.id)?.ranges.find((x) => rangeKey(x) === rangeKey(next));
+          rangesWritten++;
+          return same ?? { ...Object.fromEntries(Object.entries(next).filter(([, v]) => v !== undefined && v !== '')), gender: r.gender, id: this.store.newId().slice(0, 12), status: 'draft' as const } as ReferenceRange;
+        });
+        changed = true;
+      }
+      if (!changed) return;
+      await this.store.update(C.tests, found.id, { parameters: params, updatedAt: this.store.now() });
+      testsChanged++;
+    });
+
+    await this.audit.record({ action: 'reference_range.bulk_import', entity: 'test', entityId: 'bulk', actor: toActor(actor), changes: { rows: rows.length, testsChanged, rangesWritten, unitsSet, problems: problems.slice(0, 50) } });
+    return { rows: rows.length, testsChanged, rangesWritten, unitsSet, problems };
+  }
+
+  /** How many ranges are waiting for approval (shown on the catalogue page). */
+  async draftRangeCount() {
+    const tests = (await this.store.query<TestDoc>(C.tests, {})).items;
+    return tests.reduce((n, t) => n + t.parameters.reduce((m, p) => m + p.ranges.filter((r) => r.status === 'draft').length, 0), 0);
+  }
+
+  /** Approve every draft range in one action (qualified approver only — checked by the controller). */
+  async approveAllDraftRanges(actor: AuthUser) {
+    const tests = (await this.store.query<TestDoc>(C.tests, {})).items.filter((t) => t.parameters.some((p) => p.ranges.some((r) => r.status === 'draft')));
+    const now = this.store.now();
+    let approved = 0;
+    await mapLimit(tests, 10, async (t) => {
+      const params = t.parameters.map((p) => ({
+        ...p,
+        ranges: p.ranges.map((r) => {
+          if (r.status !== 'draft') return r;
+          approved++;
+          return { ...r, status: 'approved' as const, approvedBy: toActor(actor), approvedAt: now };
+        }),
+      }));
+      await this.store.update(C.tests, t.id, { parameters: params, updatedAt: now });
+    });
+    await this.audit.record({ action: 'reference_range.bulk_approve', entity: 'test', entityId: 'bulk', actor: toActor(actor), changes: { tests: tests.length, approved } });
+    return { tests: tests.length, approved };
   }
 
   async approveRange(testId: string, parameterId: string, rangeId: string, actor: AuthUser): Promise<TestDoc> {

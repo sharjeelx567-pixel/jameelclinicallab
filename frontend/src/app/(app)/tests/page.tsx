@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import * as React from 'react';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/shared/data-table';
+import { RangesBulk } from '@/components/laboratory/ranges-bulk';
 import { AsyncBoundary, PageHeader } from '@/components/shared/states';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -63,6 +64,7 @@ export default function TestCatalogPage() {
           )
         }
       />
+      <RangesBulk onChanged={() => void state.reload()} />
       <AsyncBoundary state={state}>
         {(tests) => (
           <DataTable
