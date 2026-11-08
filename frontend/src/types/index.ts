@@ -126,6 +126,10 @@ export interface TestParameter {
   inputType: 'numeric' | 'text' | 'select';
   options?: string[];
   decimals?: number;
+  /** Pre-filled when result entry starts, e.g. "Nil". */
+  defaultValue?: string;
+  /** May be left empty when submitting. */
+  optional?: boolean;
   ranges: ReferenceRange[];
   sortOrder: number;
 }
@@ -276,6 +280,8 @@ export interface ResultWorkspace {
     inputType: 'numeric' | 'text' | 'select';
     options?: string[];
     decimals?: number;
+    defaultValue?: string;
+    optional?: boolean;
     approvedRange: { low?: number; high?: number; text?: string; criticalLow?: number; criticalHigh?: number } | null;
     hasDraftRanges: boolean;
   }>;

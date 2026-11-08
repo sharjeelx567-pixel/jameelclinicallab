@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, CheckCircle2, FileText, Printer, Save, Send } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, FileText, Printer, Save, Send, Wand2 } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import * as React from 'react';
@@ -70,7 +70,7 @@ export default function OrderResultsPage() {
   const latestReport = reports[0];
 
   const editable = spaces.filter((w) => EDITABLE.has(w.result.status));
-  const filled = (w: ResultWorkspace) => w.parameters.every((p) => (values[w.result.id]?.[p.id] ?? '').trim() !== '');
+  const filled = (w: ResultWorkspace) => w.parameters.every((p) => p.optional || (values[w.result.id]?.[p.id] ?? '').trim() !== '');
   const empty = (w: ResultWorkspace) => w.parameters.every((p) => (values[w.result.id]?.[p.id] ?? '').trim() === '');
   const partial = editable.filter((w) => !filled(w) && !empty(w));
   const ready = editable.filter(filled);
@@ -98,6 +98,11 @@ export default function OrderResultsPage() {
       });
     }
   };
+
+  /** Blank rows of a test get their default (e.g. Nil, Not Seen) so staff change only abnormal values. */
+  const withDefaults = (w: ResultWorkspace, cur: Record<string, string>) =>
+    Object.fromEntries(w.parameters.map((p) => [p.id, (cur[p.id] ?? '').trim() === '' ? (p.defaultValue ?? '') : cur[p.id]]));
+  const hasDefaults = (w: ResultWorkspace) => w.parameters.some((p) => p.defaultValue);
 
   const run = async (mode: 'draft' | 'submit' | 'approve') => {
     if (partial.length) return toast.error(`Complete all values for ${partial[0].test.name}, or leave it empty for later`);
@@ -153,7 +158,14 @@ export default function OrderResultsPage() {
                   <CardTitle className="flex flex-wrap items-center gap-2">{w.test.name} <span className="text-xs font-normal text-muted-foreground">{w.test.code}</span></CardTitle>
                   <CardDescription>{w.sample ? `${w.sample.sampleNumber} · ${w.sample.sampleType} · sample ${titleCase(w.sample.status)}` : w.test.sampleType}</CardDescription>
                 </div>
-                <StatusBadge map={RESULT_STATUS} value={w.result.status} />
+                <div className="flex flex-wrap items-center gap-2">
+                  {!locked && hasDefaults(w) && (
+                    <Button size="sm" variant="outline" onClick={() => setValues((s) => ({ ...s, [w.result.id]: withDefaults(w, s[w.result.id] ?? {}) }))}>
+                      <Wand2 /> Fill normal values
+                    </Button>
+                  )}
+                  <StatusBadge map={RESULT_STATUS} value={w.result.status} />
+                </div>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="grid grid-cols-1 gap-x-6 gap-y-3 md:grid-cols-2">
@@ -162,11 +174,18 @@ export default function OrderResultsPage() {
                     const flag = previewFlag(p.inputType, v, p.approvedRange);
                     const inputId = `v-${w.result.id}-${p.id}`;
                     const range = p.approvedRange ? (p.approvedRange.text ?? [p.approvedRange.low, p.approvedRange.high].filter((x) => x !== undefined).join(' – ')) : 'Range not set';
-                    const set = (val: string) => setValues((s) => ({ ...s, [w.result.id]: { ...s[w.result.id], [p.id]: val } }));
+                    const set = (val: string) =>
+                      setValues((s) => {
+                        const cur = s[w.result.id] ?? {};
+                        // First value typed for this test: fill the other rows with their defaults.
+                        const start = w.parameters.every((q) => (cur[q.id] ?? '').trim() === '') ? withDefaults(w, cur) : cur;
+                        return { ...s, [w.result.id]: { ...start, [p.id]: val } };
+                      });
                     return (
                       <div key={p.id} className="grid grid-cols-[minmax(0,1fr)_9rem] items-center gap-3">
                         <label htmlFor={inputId} className="min-w-0 text-sm">
                           <span className="font-medium">{p.name}</span> {p.unit && <span className="text-muted-foreground">({p.unit})</span>}
+                          {p.optional && <span className="ml-1 text-xs text-muted-foreground">· optional</span>}
                           <span className="block text-xs text-muted-foreground">{range}</span>
                         </label>
                         <div className="flex items-center gap-1.5">

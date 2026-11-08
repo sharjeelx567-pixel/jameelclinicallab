@@ -139,6 +139,10 @@ export interface TestParameter {
   /** For `select` inputs, e.g. ["Positive", "Negative"]. */
   options?: string[];
   decimals?: number;
+  /** Pre-filled for the technician when result entry starts (e.g. "Nil"); they change only abnormal values. */
+  defaultValue?: string;
+  /** May be left empty when submitting; empty rows are not printed. */
+  optional?: boolean;
   ranges: ReferenceRange[];
   sortOrder: number;
 }

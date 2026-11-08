@@ -8,6 +8,7 @@ import * as React from 'react';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/shared/data-table';
 import { RangesBulk } from '@/components/laboratory/ranges-bulk';
+import { StandardRows } from '@/components/laboratory/standard-rows';
 import { AsyncBoundary, PageHeader } from '@/components/shared/states';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -27,6 +28,7 @@ export default function TestCatalogPage() {
   const categories = useApi(() => catalogService.categories(), []);
   const state = useApi(() => catalogService.list({ categoryId: category || undefined }), [category]);
   const [newCat, setNewCat] = React.useState<string | null>(null);
+  const [rangesKey, setRangesKey] = React.useState(0);
   const catName = (id: string) => categories.data?.find((c) => c.id === id)?.name ?? '—';
 
   const columns: ColumnDef<LabTest, unknown>[] = [
@@ -64,7 +66,8 @@ export default function TestCatalogPage() {
           )
         }
       />
-      <RangesBulk onChanged={() => void state.reload()} />
+      <StandardRows onChanged={() => { setRangesKey((k) => k + 1); void state.reload(); }} />
+      <RangesBulk key={rangesKey} onChanged={() => void state.reload()} />
       <AsyncBoundary state={state}>
         {(tests) => (
           <DataTable

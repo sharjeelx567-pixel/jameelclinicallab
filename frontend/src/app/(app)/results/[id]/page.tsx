@@ -36,7 +36,13 @@ export default function ResultEntryPage() {
 
   React.useEffect(() => {
     if (!state.data) return;
-    setValues(Object.fromEntries(state.data.result.values.map((v) => [v.parameterId, v.value])));
+    const saved = state.data.result.values;
+    // A test opened for the first time starts with its default values (e.g. Nil, Not Seen).
+    setValues(
+      saved.length
+        ? Object.fromEntries(saved.map((v) => [v.parameterId, v.value]))
+        : Object.fromEntries(state.data.parameters.filter((p) => p.defaultValue).map((p) => [p.id, p.defaultValue!])),
+    );
     setComment(state.data.result.technicianComment ?? '');
   }, [state.data]);
 
@@ -120,6 +126,7 @@ export default function ResultEntryPage() {
                   <label htmlFor={inputId} className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-sm font-medium">
                     <span className="break-words">{p.name}</span>
                     {p.unit && <span className="whitespace-nowrap font-normal text-muted-foreground">({p.unit})</span>}
+                    {p.optional && <span className="text-xs font-normal text-muted-foreground">· optional</span>}
                     {stored && <SourceBadge source={stored.source} />}
                   </label>
                   <div>

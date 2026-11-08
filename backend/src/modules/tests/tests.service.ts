@@ -1,12 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { z } from 'zod';
-import type { CatalogIndexDoc, ReferenceRange, TestCategoryDoc, TestDoc, TestParameter } from '../../common/entities';
+import type { CatalogIndexDoc, ReferenceRange, ResultDoc, TestCategoryDoc, TestDoc, TestParameter } from '../../common/entities';
 import { badRequest, conflict, notFound } from '../../common/errors';
 import { AuthUser, toActor } from '../../common/types';
 import { C, DataStore, WhereClause } from '../../database/data-store';
 import { buildSearchTokens, diff, docId, mapLimit, money, normalizeSearch, optionalText, requiredText } from '../../utils';
 import { AuditService } from '../audit-logs/audit.service';
 import { containerFor, DEPARTMENTS, departmentFor, parametersFor, type RangeImportRowInput, type RateRowInput, turnaroundHours } from './rate-list';
+import { buildParameters, planPanels } from './standard-panels';
 
 const RangeDto = z
   .object({
@@ -33,6 +34,8 @@ const ParameterDto = z.object({
   inputType: z.enum(['numeric', 'text', 'select']),
   options: z.array(requiredText(60)).max(30).optional(),
   decimals: z.number().int().min(0).max(6).optional(),
+  defaultValue: optionalText(60),
+  optional: z.boolean().optional(),
   ranges: z.array(RangeDto).max(30).default([]),
   sortOrder: z.number().int().min(0).max(1000).default(0),
 });
@@ -359,6 +362,35 @@ export class TestsService {
 
     await this.audit.record({ action: 'reference_range.bulk_import', entity: 'test', entityId: 'bulk', actor: toActor(actor), changes: { rows: rows.length, testsChanged, rangesWritten, unitsSet, problems: problems.slice(0, 50) } });
     return { rows: rows.length, testsChanged, rangesWritten, unitsSet, problems };
+  }
+
+  // ─── Standard result rows for multi-analyte tests ──
+
+  /** Tests with results still being entered or verified: their rows must not change under the technician. */
+  private async openResultTestIds(): Promise<Set<string>> {
+    const open = await this.store.query<ResultDoc>(C.results, { where: [{ field: 'status', op: 'in', value: ['pending', 'draft', 'submitted', 'correction_requested', 'rejected'] }], limit: 5000 });
+    return new Set(open.items.map((r) => r.testId));
+  }
+
+  /** Preview (apply = false) or apply the standard result rows. New ranges are DRAFT until approved. */
+  async standardPanels(actor: AuthUser, apply: boolean) {
+    const [tests, openIds] = await Promise.all([this.store.query<TestDoc>(C.tests, {}), this.openResultTestIds()]);
+    const plans = planPanels(tests.items, openIds);
+    if (!apply) return { tests: plans.map(({ panel: _p, ...p }) => p), applied: 0 };
+    const byId = new Map(tests.items.map((t) => [t.id, t]));
+    const todo = plans.filter((p) => p.action === 'replace' || p.action === 'add');
+    const now = this.store.now();
+    await mapLimit(todo, 10, async (plan) => {
+      const test = byId.get(plan.testId)!;
+      const parameters = buildParameters(test, plan, () => this.store.newId().slice(0, 12));
+      await this.store.update(C.tests, test.id, { parameters, updatedAt: now });
+    });
+    await this.audit.record({
+      action: 'test.standard_rows', entity: 'test', entityId: 'bulk', actor: toActor(actor),
+      changes: { applied: todo.map((p) => `${p.code} ${p.name}: ${p.action} ${p.rows.length} rows`) },
+    });
+    if (todo.length) await this.rebuildCatalog();
+    return { tests: plans.map(({ panel: _p, ...p }) => p), applied: todo.length };
   }
 
   /** How many ranges are waiting for approval (shown on the catalogue page). */

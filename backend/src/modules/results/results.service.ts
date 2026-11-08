@@ -109,6 +109,8 @@ export class ResultsService {
           inputType: p.inputType,
           options: p.options,
           decimals: p.decimals,
+          defaultValue: p.defaultValue,
+          optional: p.optional ?? false,
           approvedRange: range ? { low: range.low, high: range.high, text: range.text, criticalLow: range.criticalLow, criticalHigh: range.criticalHigh } : null,
           hasDraftRanges: p.ranges.some((r) => r.status === 'draft'),
         };
@@ -192,7 +194,7 @@ export class ResultsService {
 
       const values = this.computeValues(test, patient, dto.values, result.values, 'manual');
       if (dto.submit) {
-        const missing = test.parameters.filter((p) => !values.some((v) => v.parameterId === p.id));
+        const missing = test.parameters.filter((p) => !p.optional && !values.some((v) => v.parameterId === p.id));
         if (missing.length)
           throw unprocessable('INCOMPLETE_RESULT', 'All parameters need a value before submitting', missing.map((p) => ({ path: p.id, message: `${p.name} is required` })));
       }

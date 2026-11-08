@@ -31,6 +31,8 @@ export const catalogService = {
   draftRanges: () => api.get<{ drafts: number }>('/tests/ranges/drafts'),
   importRanges: (rows: RangeImportRow[]) => api.post<{ rows: number; testsChanged: number; rangesWritten: number; unitsSet: number; problems: string[] }>('/tests/ranges/import', { rows }),
   approveAllDrafts: () => api.post<{ tests: number; approved: number }>('/tests/ranges/approve-drafts'),
+  standardRows: () => api.get<StandardRowsResult>('/tests/standard-rows'),
+  applyStandardRows: () => api.post<StandardRowsResult>('/tests/standard-rows'),
   importRateList: (rows: RateListRow[], updateNames = false) =>
     api.post<{ rows: number; created: number; updated: number; unchanged: number }>('/tests/import', { rows, updateNames }),
 };
@@ -144,4 +146,9 @@ export interface RangeImportRow {
   text?: string;
   criticalLow?: string;
   criticalHigh?: string;
+}
+
+export interface StandardRowsResult {
+  applied: number;
+  tests: Array<{ testId: string; code: string; name: string; action: 'replace' | 'add' | 'up_to_date' | 'skipped_open_results' | 'skipped_custom'; rows: string[] }>;
 }

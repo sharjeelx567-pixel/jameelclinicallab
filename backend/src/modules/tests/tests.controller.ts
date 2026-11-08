@@ -93,6 +93,20 @@ export class TestsController {
     return this.tests.approveAllDraftRanges(user);
   }
 
+  /** Preview the standard result rows (Urine C/E, Stool C/E, Semen, thyroid, coagulation, GTT, …). */
+  @Get('standard-rows')
+  @RequirePermissions('tests.read')
+  previewStandardRows(@CurrentUser() user: AuthUser) {
+    return this.tests.standardPanels(user, false);
+  }
+
+  /** Apply them: single "Result" boxes become separate rows; new normal values are DRAFT. */
+  @Post('standard-rows')
+  @RequirePermissions('tests.write')
+  applyStandardRows(@CurrentUser() user: AuthUser) {
+    return this.tests.standardPanels(user, true);
+  }
+
   @Get()
   @RequirePermissions('tests.read')
   @ApiZodQuery(TestQuery)

@@ -88,7 +88,7 @@ export function TestEditor({ test }: { test?: LabTest }) {
       sampleVolume: form.sampleVolume || undefined,
       collectionInstructions: form.collectionInstructions || undefined,
       processingInstructions: form.processingInstructions || undefined,
-      parameters: params.map(({ key: _k, ...p }, i) => ({ ...p, unit: p.unit || undefined, code: p.code || undefined, sortOrder: i, options: p.inputType === 'select' ? p.options?.filter(Boolean) : undefined, ranges: p.ranges.map(({ status: _s, approvedBy: _a, approvedAt: _t, ...r }) => r) })),
+      parameters: params.map(({ key: _k, ...p }, i) => ({ ...p, unit: p.unit || undefined, code: p.code || undefined, defaultValue: p.defaultValue?.trim() || undefined, optional: p.optional || undefined, sortOrder: i, options: p.inputType === 'select' ? p.options?.filter(Boolean) : undefined, ranges: p.ranges.map(({ status: _s, approvedBy: _a, approvedAt: _t, ...r }) => r) })),
       analyzerMappings: mappings.filter((m) => m.analyzerId && m.analyzerTestCode),
     };
     try {
@@ -150,7 +150,7 @@ export function TestEditor({ test }: { test?: LabTest }) {
             <CardTitle>Parameters & reference ranges</CardTitle>
             <CardDescription className="flex items-start gap-1.5">
               <ShieldAlert className="mt-0.5 size-4 shrink-0 text-warning" />
-              Reference ranges and critical limits must be entered from the laboratory&apos;s validated documentation and approved by a qualified professional. The software never supplies default clinical values. Draft ranges are not used for flagging or printing.
+              Reference ranges and critical limits must be entered from the laboratory&apos;s validated documentation and approved by a qualified professional. Suggested values are created as drafts only. Draft ranges are not used for flagging or printing until approved.
             </CardDescription>
           </div>
           {editable && <Button size="sm" variant="outline" onClick={() => setParams((p) => [...p, newParam()])}><Plus /> Add parameter</Button>}
@@ -182,6 +182,19 @@ export function TestEditor({ test }: { test?: LabTest }) {
                   <Input id={`po-${p.key}`} value={(p.options ?? []).join(', ')} onChange={(e) => updateParam(p.key, { options: e.target.value.split(',').map((s) => s.trim()) })} disabled={!editable} placeholder="Reactive, Non-reactive" />
                 </Field>
               )}
+              <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                <Field label="Default value (pre-filled at result entry)" htmlFor={`pv-${p.key}`} hint="e.g. Nil or Not Seen. Staff then change only abnormal values.">
+                  {p.inputType === 'select' ? (
+                    <Select id={`pv-${p.key}`} value={p.defaultValue ?? ''} onChange={(e) => updateParam(p.key, { defaultValue: e.target.value || undefined })} disabled={!editable}>
+                      <option value="">No default</option>
+                      {(p.options ?? []).filter(Boolean).map((o) => <option key={o} value={o}>{o}</option>)}
+                    </Select>
+                  ) : (
+                    <Input id={`pv-${p.key}`} value={p.defaultValue ?? ''} onChange={(e) => updateParam(p.key, { defaultValue: e.target.value })} disabled={!editable} maxLength={60} />
+                  )}
+                </Field>
+                <label className="flex items-center gap-2 pb-2 text-sm"><Switch checked={!!p.optional} onCheckedChange={(v) => updateParam(p.key, { optional: v || undefined })} disabled={!editable} aria-label="Optional row" /> Optional (may be left empty)</label>
+              </div>
 
               <div className="mt-4">
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Reference ranges</p>
