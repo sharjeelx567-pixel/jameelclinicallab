@@ -150,7 +150,7 @@ export default function ResultEntryPage() {
                   </div>
                   <p className="text-xs text-muted-foreground">
                     <span className="md:hidden">Range: </span>
-                    {p.approvedRange ? rangeText(p.approvedRange, p.unit) : <span title="No approved reference range for this patient's age/gender">Not configured{p.hasDraftRanges && ' (draft pending approval)'}</span>}
+                    {p.approvedRange ? <span className="whitespace-pre-line">{rangeText(p.approvedRange, p.unit)}</span> : <span title="No approved reference range for this patient's age/gender">Not configured{p.hasDraftRanges && ' (draft pending approval)'}</span>}
                   </p>
                   <div className="md:w-28 md:text-right">{flag && <FlagBadge flag={flag} />}</div>
                 </div>

@@ -75,7 +75,7 @@ function Reviewer({ id, onDone }: { id: string; onDone: () => void }) {
                   <tr key={v.parameterId} className={cn(v.flag.startsWith('critical') && 'bg-destructive-soft/60')}>
                     <td className="px-3 py-2 font-medium">{v.parameterName}</td>
                     <td className={cn('tabular px-3 py-2', v.flag !== 'normal' && v.flag !== 'no_range' && 'font-semibold')}>{v.value} {v.unit}</td>
-                    <td className="px-3 py-2 text-muted-foreground">{rangeText(v.referenceRange, v.unit) || 'Not configured'}</td>
+                    <td className="whitespace-pre-line px-3 py-2 text-muted-foreground">{rangeText(v.referenceRange, v.unit) || 'Not configured'}</td>
                     <td className="px-3 py-2"><FlagBadge flag={v.flag} /></td>
                     <td className="px-3 py-2"><SourceBadge source={v.source} /></td>
                   </tr>

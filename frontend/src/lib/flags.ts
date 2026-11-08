@@ -25,6 +25,8 @@ export function previewFlag(inputType: 'numeric' | 'text' | 'select', value: str
     return 'normal';
   }
   if (!range?.text) return 'no_range';
+  const lines = range.text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (lines.length > 1) return lines.some((l) => textMatchesNormal(value, l)) ? 'normal' : 'no_range';
   return textMatchesNormal(value, range.text) ? 'normal' : 'abnormal';
 }
 

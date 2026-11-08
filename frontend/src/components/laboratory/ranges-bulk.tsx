@@ -92,7 +92,7 @@ export function RangesBulk({ onChanged }: { onChanged?: () => void }) {
       <CardHeader>
         <div>
           <CardTitle className="flex items-center gap-2"><FileSpreadsheet className="size-5 text-primary" /> Normal ranges — all tests at once</CardTitle>
-          <CardDescription>1. Download the sheet · 2. Fill units and normal values in Excel from your kit inserts · 3. Import · 4. Approve. Ranges are used on reports only after approval.</CardDescription>
+          <CardDescription>1. Download the sheet · 2. Fill units and normal values in Excel from your kit inserts · 3. Import · 4. Approve. In normalText you can write words too; use &ldquo; | &rdquo; for a new line, e.g. Prediabetes 5.7-6.4% | Diabetes &gt;= 6.5%. Ranges are used on reports only after approval.</CardDescription>
         </div>
         {drafts !== null && drafts > 0 && <Badge tone="warning">{drafts} waiting approval</Badge>}
       </CardHeader>

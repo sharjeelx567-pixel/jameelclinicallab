@@ -117,7 +117,7 @@ export function ReportDocument({
                         {abnormal && <span className="ml-1.5 text-[8pt]">{FLAG_META[v.flag]?.short}</span>}
                       </span>
                       <span>{v.unit}</span>
-                      <span>{v.range || <span className="italic text-slate-500">—</span>}</span>
+                      <span className="whitespace-pre-line">{v.range || <span className="italic text-slate-500">—</span>}</span>
                     </div>
                   );
                 })}

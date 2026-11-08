@@ -1,5 +1,6 @@
 import type { TestDoc, TestParameter } from '../../common/entities';
-import { textMatchesNormal } from './reference-range';
+import { RangeImportRow } from './rate-list';
+import { flagValue, formatRange, textMatchesNormal } from './reference-range';
 import { buildParameters, panelFor, planPanels, STANDARD_PANELS } from './standard-panels';
 
 const single = (code: string, name: string, extra: Partial<TestDoc> = {}): TestDoc =>
@@ -67,5 +68,23 @@ describe('textMatchesNormal', () => {
     expect(textMatchesNormal('yellow', 'Pale Yellow / Yellow')).toBe(true);
     expect(textMatchesNormal('Red', 'Pale Yellow / Yellow')).toBe(false);
     expect(textMatchesNormal('', 'Nil')).toBe(false);
+  });
+});
+
+describe('descriptive normal values', () => {
+  const range = { id: 'r', gender: 'any' as const, status: 'approved' as const, high: 5.6, text: 'Prediabetes 5.7-6.4%\nDiabetes Mellitus ≥ 6.5%\nMonitoring of Diabetes <7.0%' };
+  it('numeric results are flagged by the numbers, the text is printed (PDF-safe)', () => {
+    const prm = { id: 'p', name: 'HbA1c', inputType: 'numeric' as const, ranges: [range], sortOrder: 0 };
+    expect(flagValue(prm, '6.49', range).flag).toBe('high');
+    expect(formatRange(range)).toBe('Prediabetes 5.7-6.4%\nDiabetes Mellitus >= 6.5%\nMonitoring of Diabetes <7.0%');
+  });
+  it('multi-line text on a text result is not flagged abnormal when no line matches', () => {
+    const r2 = { ...range, high: undefined, text: 'Negative: < 1.0\nPositive: >= 1.0' };
+    const prm = { id: 'p', name: 'Ab', inputType: 'text' as const, ranges: [r2], sortOrder: 0 };
+    expect(flagValue(prm, '0.4 (Negative)', r2).flag).toBe('no_range');
+  });
+  it('spreadsheet "|" becomes a new line', () => {
+    const row = RangeImportRow.parse({ code: '4802', parameter: 'Result', gender: '', text: 'Prediabetes 5.7-6.4% | Diabetes >= 6.5% |  Monitoring <7.0%' });
+    expect(row.text).toBe('Prediabetes 5.7-6.4%\nDiabetes >= 6.5%\nMonitoring <7.0%');
   });
 });

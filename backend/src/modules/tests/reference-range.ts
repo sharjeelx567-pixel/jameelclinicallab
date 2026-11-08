@@ -34,12 +34,16 @@ export function flagValue(param: TestParameter, value: string, range: ReferenceR
     return { flag: 'normal', numericValue };
   }
   if (!range?.text) return { flag: 'no_range' };
+  // Several lines = descriptive interpretation (not one expected answer): normal if a line
+  // matches, otherwise left unflagged for the pathologist to interpret.
+  const lines = range.text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (lines.length > 1) return { flag: lines.some((l) => textMatchesNormal(value, l)) ? 'normal' : 'no_range' };
   return { flag: textMatchesNormal(value, range.text) ? 'normal' : 'abnormal' };
 }
 
 export function formatRange(range: { low?: number; high?: number; text?: string } | undefined, unit?: string): string {
   if (!range) return '';
-  if (range.text) return range.text;
+  if (range.text) return pdfSafe(range.text);
   const u = unit ? ` ${unit}` : '';
   // ASCII-only: this string is printed with standard (WinAnsi) PDF fonts.
   if (range.low !== undefined && range.high !== undefined) return `${range.low} - ${range.high}${u}`;
@@ -48,7 +52,17 @@ export function formatRange(range: { low?: number; high?: number; text?: string 
   return '';
 }
 
-export const isCritical = (f: ResultFlag) => f === 'critical_low' || f === 'critical_high';
+/** Symbols missing from the standard PDF fonts (WinAnsi) written in plain characters. */
+const PDF_SUBST: Record<string, string> = { '≥': '>=', '≤': '<=', '−': '-', '≠': '!=', '→': '->', '⁶': '^6', '⁹': '^9', '₁': '1', '₂': '2', '\t': ' ' };
+export const pdfSafe = (s: string) =>
+  s
+    .replace(/[≥≤−≠→⁶⁹₁₂\t]/g, (c) => PDF_SUBST[c] ?? c)
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .join('\n');
+
+export const isCritical =(f: ResultFlag) => f === 'critical_low' || f === 'critical_high';
 
 const ABSENT = new Set(['nil', 'none', 'notseen', 'absent', 'negative', 'notdetected', '0']);
 const canon = (s: string) => s.trim().toLowerCase().replace(/[\s.]+/g, '');

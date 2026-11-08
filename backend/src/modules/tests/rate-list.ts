@@ -142,7 +142,8 @@ export const RangeImportRow = z
     ageTo: optNum,
     low: optNum,
     high: optNum,
-    text: optStr(120),
+    // "|" in the spreadsheet starts a new line: "Prediabetes 5.7-6.4% | Diabetes >= 6.5%".
+    text: z.preprocess((v) => (typeof v === 'string' ? v.split('|').map((l) => l.trim()).filter(Boolean).join('\n') || undefined : v), z.string().max(600).optional()),
     criticalLow: optNum,
     criticalHigh: optNum,
   })

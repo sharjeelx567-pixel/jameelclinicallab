@@ -186,7 +186,7 @@ export default function OrderResultsPage() {
                         <label htmlFor={inputId} className="min-w-0 text-sm">
                           <span className="font-medium">{p.name}</span> {p.unit && <span className="text-muted-foreground">({p.unit})</span>}
                           {p.optional && <span className="ml-1 text-xs text-muted-foreground">· optional</span>}
-                          <span className="block text-xs text-muted-foreground">{range}</span>
+                          <span className="block whitespace-pre-line text-xs text-muted-foreground">{range}</span>
                         </label>
                         <div className="flex items-center gap-1.5">
                           {p.inputType === 'select' ? (

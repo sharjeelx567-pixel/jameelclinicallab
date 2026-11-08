@@ -17,7 +17,8 @@ const RangeDto = z
     ageMaxYears: z.number().min(0).max(130).optional(),
     low: z.number().finite().optional(),
     high: z.number().finite().optional(),
-    text: optionalText(120),
+    // Normal value as printed; may have several lines (e.g. Prediabetes 5.7-6.4% / Diabetes >= 6.5%).
+    text: optionalText(600),
     criticalLow: z.number().finite().optional(),
     criticalHigh: z.number().finite().optional(),
   })
@@ -307,7 +308,7 @@ export class TestsService {
         const base = { code: t.code, testName: t.name, parameter: p.name, unit: p.unit ?? '' };
         if (!p.ranges.length) rows.push({ ...base, gender: 'any', ageFrom: '', ageTo: '', low: '', high: '', normalText: '', criticalLow: '', criticalHigh: '', status: '' });
         for (const r of p.ranges)
-          rows.push({ ...base, gender: r.gender, ageFrom: r.ageMinYears ?? '', ageTo: r.ageMaxYears ?? '', low: r.low ?? '', high: r.high ?? '', normalText: r.text ?? '', criticalLow: r.criticalLow ?? '', criticalHigh: r.criticalHigh ?? '', status: r.status });
+          rows.push({ ...base, gender: r.gender, ageFrom: r.ageMinYears ?? '', ageTo: r.ageMaxYears ?? '', low: r.low ?? '', high: r.high ?? '', normalText: (r.text ?? '').split('\n').join(' | '), criticalLow: r.criticalLow ?? '', criticalHigh: r.criticalHigh ?? '', status: r.status });
       }
     return rows;
   }

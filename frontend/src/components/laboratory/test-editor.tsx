@@ -88,7 +88,7 @@ export function TestEditor({ test }: { test?: LabTest }) {
       sampleVolume: form.sampleVolume || undefined,
       collectionInstructions: form.collectionInstructions || undefined,
       processingInstructions: form.processingInstructions || undefined,
-      parameters: params.map(({ key: _k, ...p }, i) => ({ ...p, unit: p.unit || undefined, code: p.code || undefined, defaultValue: p.defaultValue?.trim() || undefined, optional: p.optional || undefined, sortOrder: i, options: p.inputType === 'select' ? p.options?.filter(Boolean) : undefined, ranges: p.ranges.map(({ status: _s, approvedBy: _a, approvedAt: _t, ...r }) => r) })),
+      parameters: params.map(({ key: _k, ...p }, i) => ({ ...p, unit: p.unit || undefined, code: p.code || undefined, defaultValue: p.defaultValue?.trim() || undefined, optional: p.optional || undefined, sortOrder: i, options: p.inputType === 'select' ? p.options?.filter(Boolean) : undefined, ranges: p.ranges.map(({ status: _s, approvedBy: _a, approvedAt: _t, ...r }) => ({ ...r, text: r.text?.trim() || undefined })) })),
       analyzerMappings: mappings.filter((m) => m.analyzerId && m.analyzerTestCode),
     };
     try {
@@ -215,7 +215,7 @@ export function TestEditor({ test }: { test?: LabTest }) {
                           <Input placeholder="Critical high" type="number" value={str(r.criticalHigh)} onChange={(e) => updateRange(p.key, i, { criticalHigh: num(e.target.value) })} disabled={!editable} aria-label="Critical high" />
                         </>
                       ) : (
-                        <Input placeholder="Expected result (e.g. Non-reactive)" className="col-span-2 sm:col-span-4 xl:col-span-4" value={r.text ?? ''} onChange={(e) => updateRange(p.key, i, { text: e.target.value })} disabled={!editable} aria-label="Expected value" />
+                        <div className="col-span-2 hidden sm:col-span-4 xl:col-span-4 xl:block" />
                       )}
                       <div className="col-span-2 flex flex-wrap items-center justify-end gap-2 sm:col-span-4 xl:col-span-1">
                         {r.status === 'approved' ? (
@@ -227,6 +227,18 @@ export function TestEditor({ test }: { test?: LabTest }) {
                         )}
                         {editable && <Button size="icon-sm" variant="ghost" onClick={() => updateParam(p.key, { ranges: p.ranges.filter((_, j) => j !== i) })} aria-label="Remove range"><Trash2 /></Button>}
                       </div>
+                      <Textarea
+                        rows={Math.max(2, Math.min(8, (r.text ?? '').split('\n').length))}
+                        className="col-span-full min-h-0"
+                        placeholder={p.inputType === 'numeric'
+                          ? 'Normal value text printed on the report (optional), one line each, e.g.\nPrediabetes 5.7-6.4%\nDiabetes Mellitus >= 6.5%'
+                          : 'Normal / expected result, e.g. Non-Reactive (several lines allowed)'}
+                        value={r.text ?? ''}
+                        onChange={(e) => updateRange(p.key, i, { text: e.target.value })}
+                        disabled={!editable}
+                        maxLength={600}
+                        aria-label="Normal value text"
+                      />
                     </div>
                   ))}
                 </div>
