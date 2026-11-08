@@ -2,6 +2,7 @@
 
 import { Moon, Sun } from 'lucide-react';
 import * as React from 'react';
+import { Toaster } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { themeConfig } from '@/theme/config';
 
@@ -36,4 +37,10 @@ export function ThemeToggle() {
       {theme === 'dark' ? <Sun /> : <Moon />}
     </Button>
   );
+}
+
+/** Toast notifications drawn in the active theme. */
+export function ThemedToaster() {
+  const { theme } = useTheme();
+  return <Toaster theme={theme} richColors closeButton position="top-right" toastOptions={{ className: 'font-sans' }} />;
 }

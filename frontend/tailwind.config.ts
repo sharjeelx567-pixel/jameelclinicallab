@@ -8,6 +8,8 @@ const config: Config = {
   theme: {
     container: { center: true, padding: '1rem' },
     extend: {
+      // Text uses a deeper blue in light mode so links, tabs and badges stay readable (AA).
+      textColor: { primary: { DEFAULT: 'hsl(var(--primary-text))' } },
       colors: {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',

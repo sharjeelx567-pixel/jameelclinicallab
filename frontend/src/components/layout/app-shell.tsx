@@ -139,7 +139,7 @@ function NotificationsMenu() {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="relative" aria-label={`Notifications${unread ? `, ${unread} unread` : ''}`}>
           <Bell />
-          {unread > 0 && <span className="absolute right-1.5 top-1.5 grid min-w-4 place-items-center rounded-full bg-destructive px-1 text-[10px] font-bold leading-4 text-white">{unread > 99 ? '99+' : unread}</span>}
+          {unread > 0 && <span className="absolute right-1.5 top-1.5 grid min-w-4 place-items-center rounded-full bg-destructive px-1 text-[10px] dark:bg-red-600 font-bold leading-4 text-white">{unread > 99 ? '99+' : unread}</span>}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[22rem]">
@@ -250,7 +250,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           >
             {collapsed ? <PanelLeftOpen className="size-4" /> : <><PanelLeftClose className="size-4" /> Collapse</>}
           </button>
-          {!collapsed && <p className="mt-2 px-1 text-center text-[10.5px] italic text-sidebar-muted/70 [@media(max-height:820px)]:hidden">{BRAND.tagline}</p>}
+          {!collapsed && <p className="mt-2 px-1 text-center text-[10.5px] italic text-sidebar-muted [@media(max-height:820px)]:hidden">{BRAND.tagline}</p>}
         </div>
       </aside>
 
@@ -262,7 +262,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           <span className="sr-only" id="mobile-nav-title">Navigation</span>
           <SidebarNav onNavigate={() => setMobileOpen(false)} />
-          <p className="border-t border-white/[0.06] p-3 text-center text-[10.5px] italic text-sidebar-muted/70">{BRAND.tagline}</p>
+          <p className="border-t border-white/[0.06] p-3 text-center text-[10.5px] italic text-sidebar-muted">{BRAND.tagline}</p>
         </SheetContent>
       </Dialog>
 

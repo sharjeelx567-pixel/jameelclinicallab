@@ -10,6 +10,21 @@
   }
   html {
     -webkit-text-size-adjust: 100%;
+    /* Native controls (select lists, date pickers, scrollbars, autofill) follow the theme. */
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  /* Native <select> popups do not inherit the page background: give options the
+     popover colours so their (inherited) text is always readable. */
+  select option,
+  select optgroup {
+    background-color: hsl(var(--popover));
+    color: hsl(var(--popover-foreground));
+  }
+  select option:disabled {
+    color: hsl(var(--muted-foreground));
   }
   body {
     @apply bg-background text-foreground antialiased;

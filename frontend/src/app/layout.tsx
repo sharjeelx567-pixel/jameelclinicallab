@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Toaster } from 'sonner';
-import { ThemeProvider, themeInitScript } from '@/components/layout/theme';
+import { ThemedToaster, ThemeProvider, themeInitScript } from '@/components/layout/theme';
 import { BRAND } from '@/constants';
 import { AuthProvider } from '@/features/auth/auth-provider';
 import { fontVariables } from '@/theme/fonts';
@@ -32,7 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <ThemeProvider>
           <AuthProvider>{children}</AuthProvider>
-          <Toaster richColors closeButton position="top-right" toastOptions={{ className: 'font-sans' }} />
+          <ThemedToaster />
         </ThemeProvider>
       </body>
     </html>

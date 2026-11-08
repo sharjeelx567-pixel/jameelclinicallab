@@ -77,7 +77,7 @@ export default function AnalyticsPage() {
                       <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v: string) => format(new Date(v), 'dd MMM')} />
                       <YAxis yAxisId="l" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
                       <Tooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 10, fontSize: 12 }} />
-                      <Legend wrapperStyle={{ fontSize: 12 }} />
+                      <Legend wrapperStyle={{ fontSize: 12 }} formatter={(value) => <span className="text-foreground">{value}</span>} />
                       <Bar yAxisId="l" dataKey="patients" name="Patients" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                       <Bar yAxisId="l" dataKey="orders" name="Orders" fill="hsl(var(--info))" radius={[4, 4, 0, 0]} />
                     </BarChart>
