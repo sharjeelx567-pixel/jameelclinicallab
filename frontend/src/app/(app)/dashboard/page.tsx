@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { DistributionChart, RegistrationsChart, RevenueChart } from '@/components/dashboard/charts';
-import { LabHeroIllustration } from '@/components/shared/illustrations';
+import { HeroLogo } from '@/components/shared/hero-logo';
 import { CountUp, Stagger, StaggerItem } from '@/components/shared/motion';
 import { EmptyState, ErrorState, LoadingCards } from '@/components/shared/states';
 import { DemoBadge, StatCard, StatusBadge } from '@/components/shared/status';
@@ -73,8 +73,8 @@ export default function DashboardPage() {
               ))}
             </div>
           </motion.div>
-          <div className="mx-auto hidden w-full max-w-sm sm:block">
-            <LabHeroIllustration className="drop-shadow-2xl" />
+          <div className="mx-auto hidden w-full max-w-sm py-2 sm:block">
+            <HeroLogo />
           </div>
         </div>
       </section>
