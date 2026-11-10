@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import * as React from 'react';
 import { toast } from 'sonner';
+import { NormalValueButton } from '@/components/laboratory/normal-value-dialog';
 import { ResultContext } from '@/components/laboratory/result-context';
 import { ConfirmDialog } from '@/components/shared/dialogs';
 import { ErrorState, LoadingRows, PageHeader } from '@/components/shared/states';
@@ -34,8 +35,14 @@ export default function ResultEntryPage() {
   const [saving, setSaving] = React.useState<'draft' | 'submit' | null>(null);
   const [amending, setAmending] = React.useState(false);
 
+  // After changing a normal value the page reloads the ranges but keeps what was typed.
+  const keepTyped = React.useRef(false);
   React.useEffect(() => {
     if (!state.data) return;
+    if (keepTyped.current) {
+      keepTyped.current = false;
+      return;
+    }
     const saved = state.data.result.values;
     // A test opened for the first time starts with its default values (e.g. Nil, Not Seen).
     setValues(
@@ -150,7 +157,8 @@ export default function ResultEntryPage() {
                   </div>
                   <p className="text-xs text-muted-foreground">
                     <span className="md:hidden">Range: </span>
-                    {p.approvedRange ? <span className="whitespace-pre-line">{rangeText(p.approvedRange, p.unit)}</span> : <span title="No approved reference range for this patient's age/gender">Not configured{p.hasDraftRanges && ' (draft pending approval)'}</span>}
+                    {p.approvedRange ? <span className="whitespace-pre-line">{rangeText(p.approvedRange, p.unit)}</span> : <span title="No approved reference range for this patient's age/gender">Not set{p.hasDraftRanges && ' (draft pending approval)'}</span>}
+                    <NormalValueButton className="-ml-1.5 flex" testId={ws.test.id} param={p} onSaved={() => { keepTyped.current = true; void state.reload(); }} />
                   </p>
                   <div className="md:w-28 md:text-right">{flag && <FlagBadge flag={flag} />}</div>
                 </div>

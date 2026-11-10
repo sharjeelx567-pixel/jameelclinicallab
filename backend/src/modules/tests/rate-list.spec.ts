@@ -94,3 +94,28 @@ describe('reference range spreadsheet import', () => {
     expect(await tests.draftRangeCount()).toBe(1); // changed range needs approval again
   });
 });
+
+describe('quick normal value from the result screens', () => {
+  it('replaces the general range, keeps gender ranges, approves for an approver and re-flags open results', async () => {
+    const store = new MemoryDataStore();
+    const tests = new TestsService(store, new AuditService(store));
+    await tests.importRateList(rows.filter((r) => r.code === '1645'), actor);
+    const typhoid = (await store.query<TestDoc>(C.tests, { where: [{ field: 'code', op: '==', value: '1645' }] })).items[0];
+    const param = typhoid.parameters[0];
+    // A wrong normal text ("Positive Negative") made the result "Negative" abnormal.
+    await store.update(C.tests, typhoid.id, { parameters: [{ ...param, ranges: [{ id: 'g', gender: 'any', text: 'Positive Negative', status: 'approved' }, { id: 'm', gender: 'male', text: 'X', status: 'approved' }] }] });
+    await store.create(C.patients, 'p1', { id: 'p1', gender: 'female', ageYears: 30 });
+    await store.create(C.results, 'r1', { id: 'r1', testId: typhoid.id, patientId: 'p1', status: 'submitted', values: [{ parameterId: param.id, parameterName: 'Result', value: 'Negative', flag: 'abnormal', source: 'manual' }] });
+
+    const res = await tests.setNormalValue(typhoid.id, param.id, { text: 'Negative' }, actor);
+    expect(res).toEqual({ approved: true, reflagged: 1 });
+    const after = await tests.get(typhoid.id);
+    expect(after.parameters[0].ranges.map((r) => [r.id, r.gender, r.text, r.status])).toEqual([['g', 'any', 'Negative', 'approved'], ['m', 'male', 'X', 'approved']]);
+    expect((await store.get<{ id: string; values: Array<{ flag: string }> }>(C.results, 'r1'))!.values[0].flag).toBe('normal');
+
+    // Without approval permission the value is a draft and nothing is re-flagged.
+    const tech = { ...actor, permissions: actor.permissions.filter((p) => p !== 'tests.approveRanges') };
+    expect(await tests.setNormalValue(typhoid.id, param.id, { text: 'Positive' }, tech)).toEqual({ approved: false, reflagged: 0 });
+    expect((await tests.get(typhoid.id)).parameters[0].ranges[0]).toMatchObject({ text: 'Positive', status: 'draft' });
+  });
+});

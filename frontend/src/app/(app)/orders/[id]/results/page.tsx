@@ -1,10 +1,12 @@
 'use client';
 
-import { ArrowLeft, CheckCircle2, FileText, Printer, Save, Send, Wand2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, FilePen, FileText, Printer, Save, Send, Wand2 } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import * as React from 'react';
 import { toast } from 'sonner';
+import { NormalValueButton } from '@/components/laboratory/normal-value-dialog';
+import { ConfirmDialog } from '@/components/shared/dialogs';
 import { ErrorState, LoadingRows, PageHeader } from '@/components/shared/states';
 import { FlagBadge, StatusBadge } from '@/components/shared/status';
 import { Badge } from '@/components/ui/badge';
@@ -63,11 +65,21 @@ export default function OrderResultsPage() {
     void load();
   }, [load]);
 
+  /** Reload one test (new normal value, opened for editing) without losing what was typed in the others. */
+  const refreshOne = async (resultId: string, resetValues = false) => {
+    const w = await resultsService.workspace(resultId);
+    setSpaces((s) => s && s.map((x) => (x.result.id === resultId ? w : x)));
+    if (resetValues) setValues((s) => ({ ...s, [resultId]: Object.fromEntries(w.parameters.map((p) => [p.id, w.result.values.find((v) => v.parameterId === p.id)?.value ?? ''])) }));
+  };
+  const [amendFor, setAmendFor] = React.useState<ResultWorkspace | null>(null);
+  const [reportReplaced, setReportReplaced] = React.useState(false);
+
   if (detail.error) return <ErrorState error={detail.error} onRetry={detail.reload} />;
   if (loadError) return <ErrorState error={loadError} onRetry={() => void load()} />;
   if (!detail.data || !spaces) return <LoadingRows rows={10} />;
   const { order, patient, samples, reports } = detail.data;
-  const latestReport = reports[0];
+  // After "Edit result" the issued report is replaced (superseded) and must not be printed.
+  const latestReport = reportReplaced ? undefined : reports.find((r) => r.status !== 'superseded');
 
   const editable = spaces.filter((w) => EDITABLE.has(w.result.status));
   const filled = (w: ResultWorkspace) => w.parameters.every((p) => p.optional || (values[w.result.id]?.[p.id] ?? '').trim() !== '');
@@ -164,6 +176,9 @@ export default function OrderResultsPage() {
                       <Wand2 /> Fill normal values
                     </Button>
                   )}
+                  {w.result.status === 'approved' && can('results.amend') && (
+                    <Button size="sm" variant="outline" onClick={() => setAmendFor(w)}><FilePen /> Edit result</Button>
+                  )}
                   <StatusBadge map={RESULT_STATUS} value={w.result.status} />
                 </div>
               </CardHeader>
@@ -182,19 +197,20 @@ export default function OrderResultsPage() {
                         return { ...s, [w.result.id]: { ...start, [p.id]: val } };
                       });
                     return (
-                      <div key={p.id} className="grid grid-cols-[minmax(0,1fr)_9rem] items-center gap-3">
+                      <div key={p.id} className="grid grid-cols-[minmax(0,1fr)_minmax(9rem,15rem)] items-center gap-3">
                         <label htmlFor={inputId} className="min-w-0 text-sm">
                           <span className="font-medium">{p.name}</span> {p.unit && <span className="text-muted-foreground">({p.unit})</span>}
                           {p.optional && <span className="ml-1 text-xs text-muted-foreground">· optional</span>}
                           <span className="block whitespace-pre-line text-xs text-muted-foreground">{range}</span>
+                          {!locked && <NormalValueButton className="-ml-1.5" testId={w.test.id} param={p} onSaved={() => void refreshOne(w.result.id)} />}
                         </label>
                         <div className="flex items-center gap-1.5">
                           {p.inputType === 'select' ? (
                             <Select id={inputId} value={v} disabled={locked} onChange={(e) => set(e.target.value)}><option value="">—</option>{p.options?.map((o) => <option key={o}>{o}</option>)}</Select>
                           ) : (
-                            <Input id={inputId} value={v} disabled={locked} inputMode={p.inputType === 'numeric' ? 'decimal' : 'text'} onChange={(e) => set(e.target.value)} className={cn('tabular', flag && flag !== 'normal' && flag !== 'no_range' && 'border-destructive font-semibold text-destructive')} />
+                            <Input id={inputId} value={v} disabled={locked} inputMode={p.inputType === 'numeric' ? 'decimal' : 'text'} onChange={(e) => set(e.target.value)} className={cn('tabular min-w-[5rem]', flag && flag !== 'normal' && flag !== 'no_range' && 'border-destructive font-semibold text-destructive')} />
                           )}
-                          {flag && flag !== 'normal' && flag !== 'no_range' && <FlagBadge flag={flag} />}
+                          {flag && flag !== 'normal' && flag !== 'no_range' && <span className="shrink-0"><FlagBadge flag={flag} /></span>}
                         </div>
                       </div>
                     );
@@ -227,6 +243,27 @@ export default function OrderResultsPage() {
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={!!amendFor}
+        onOpenChange={(o) => !o && setAmendFor(null)}
+        title={`Edit ${amendFor?.test.name ?? 'result'}?`}
+        description="The test opens again for changes. The old report is kept in the record and marked replaced. After correcting, approve it again and print the new report (it shows AMENDED with your reason)."
+        confirmLabel="Open for editing"
+        reasonLabel="Why are you changing it?"
+        onConfirm={async (reason) => {
+          if (!amendFor) return;
+          try {
+            await resultsService.amend(amendFor.result.id, reason);
+            setReportReplaced(true);
+            toast.success(`${amendFor.test.name} is open for editing`);
+            await refreshOne(amendFor.result.id, true);
+          } catch (err) {
+            toast.error(errorMessage(err));
+            throw err;
+          }
+        }}
+      />
     </div>
   );
 }

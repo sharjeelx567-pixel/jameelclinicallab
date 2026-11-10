@@ -1,11 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { z } from 'zod';
-import type { CatalogIndexDoc, ReferenceRange, ResultDoc, TestCategoryDoc, TestDoc, TestParameter } from '../../common/entities';
+import type { CatalogIndexDoc, PatientDoc, ReferenceRange, ResultDoc, TestCategoryDoc, TestDoc, TestParameter } from '../../common/entities';
 import { badRequest, conflict, notFound } from '../../common/errors';
 import { AuthUser, toActor } from '../../common/types';
 import { C, DataStore, WhereClause } from '../../database/data-store';
 import { buildSearchTokens, diff, docId, mapLimit, money, normalizeSearch, optionalText, requiredText } from '../../utils';
 import { AuditService } from '../audit-logs/audit.service';
+import { flagValue, isCritical, selectRange } from './reference-range';
 import { containerFor, DEPARTMENTS, departmentFor, parametersFor, type RangeImportRowInput, type RateRowInput, turnaroundHours } from './rate-list';
 import { buildParameters, planPanels } from './standard-panels';
 
@@ -438,4 +439,83 @@ export class TestsService {
     });
     return test;
   }
+
+  /**
+   * Quick "set normal value" from the result screens. Replaces only the general range
+   * (all genders, all ages) of one parameter; gender/age ranges are kept. Approved at
+   * once when the user may approve ranges, otherwise saved as a draft. Results that are
+   * not yet approved are re-flagged against the approved ranges.
+   */
+  async setNormalValue(testId: string, parameterId: string, dto: z.infer<typeof NormalValueDto>, actor: AuthUser) {
+    const test = await this.get(testId);
+    const param = test.parameters.find((p) => p.id === parameterId);
+    if (!param) throw notFound('Parameter');
+    const text = dto.text?.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).join('\n') || undefined;
+    const general = param.ranges.find((r) => r.gender === 'any' && r.ageMinYears === undefined && r.ageMaxYears === undefined);
+    const approved = actor.permissions.includes('tests.approveRanges');
+    const now = this.store.now();
+    const range: ReferenceRange = {
+      id: general?.id ?? this.store.newId().slice(0, 12),
+      gender: 'any',
+      ...(dto.low !== undefined ? { low: dto.low } : {}),
+      ...(dto.high !== undefined ? { high: dto.high } : {}),
+      ...(text ? { text } : {}),
+      ...(general?.criticalLow !== undefined ? { criticalLow: general.criticalLow } : {}),
+      ...(general?.criticalHigh !== undefined ? { criticalHigh: general.criticalHigh } : {}),
+      status: approved ? 'approved' : 'draft',
+      ...(approved ? { approvedBy: toActor(actor), approvedAt: now } : {}),
+    };
+    const unit = dto.unit === undefined ? param.unit : dto.unit || undefined;
+    const { unit: _u, ...rest } = param;
+    const nextParam: TestParameter = {
+      ...rest,
+      ...(unit ? { unit } : {}),
+      // Numbers on a text row turn it into a number row, as the spreadsheet import does.
+      inputType: param.inputType === 'text' && (dto.low !== undefined || dto.high !== undefined) ? 'numeric' : param.inputType,
+      ranges: general ? param.ranges.map((r) => (r === general ? range : r)) : [range, ...param.ranges],
+    };
+    const parameters = test.parameters.map((p) => (p.id === parameterId ? nextParam : p));
+    await this.store.update(C.tests, testId, { parameters, updatedAt: now });
+    await this.audit.record({
+      action: 'reference_range.quick_set',
+      entity: 'test',
+      entityId: testId,
+      actor: toActor(actor),
+      changes: { parameter: param.name, from: general ? { low: general.low, high: general.high, text: general.text } : null, to: { low: range.low, high: range.high, text: range.text, unit }, status: range.status },
+    });
+    const reflagged = approved ? await this.reflagOpenResults({ ...test, parameters }) : 0;
+    return { approved, reflagged };
+  }
+
+  /** Re-computes flags of results not yet approved (approved results change only through an amendment). */
+  private async reflagOpenResults(test: TestDoc): Promise<number> {
+    const open = new Set(['draft', 'submitted', 'correction_requested', 'rejected']);
+    const results = (await this.store.query<ResultDoc>(C.results, { where: [{ field: 'testId', op: '==', value: test.id }], limit: 2000 })).items.filter((r) => open.has(r.status) && r.values.length);
+    let n = 0;
+    await mapLimit(results, 10, async (r) => {
+      const patient = await this.store.get<PatientDoc>(C.patients, r.patientId);
+      if (!patient) return;
+      const values = r.values.map((v) => {
+        const p = test.parameters.find((x) => x.id === v.parameterId);
+        if (!p) return v;
+        const range = selectRange(p, patient.gender, patient.ageYears);
+        const { flag, numericValue } = flagValue(p, v.value, range);
+        return { ...v, flag, ...(numericValue !== undefined ? { numericValue } : {}), ...(p.unit ? { unit: p.unit } : {}), referenceRange: range ? { low: range.low, high: range.high, text: range.text, rangeId: range.id } : undefined };
+      });
+      if (JSON.stringify(values) === JSON.stringify(r.values)) return;
+      await this.store.update(C.results, r.id, { values, hasCritical: values.some((v) => isCritical(v.flag)), updatedAt: this.store.now() });
+      n++;
+    });
+    return n;
+  }
 }
+
+export const NormalValueDto = z
+  .object({
+    text: optionalText(600),
+    low: z.number().finite().optional(),
+    high: z.number().finite().optional(),
+    unit: optionalText(30),
+  })
+  .refine((r) => !!r.text || r.low !== undefined || r.high !== undefined, { message: 'Enter the normal value' })
+  .refine((r) => r.low === undefined || r.high === undefined || r.low <= r.high, { message: 'Lowest normal must not be more than highest normal' });

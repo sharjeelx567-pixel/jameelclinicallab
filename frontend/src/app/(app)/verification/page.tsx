@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import * as React from 'react';
 import { toast } from 'sonner';
+import { NormalValueButton } from '@/components/laboratory/normal-value-dialog';
 import { ResultContext } from '@/components/laboratory/result-context';
 import { EmptyState, ErrorState, LoadingRows, PageHeader } from '@/components/shared/states';
 import { FlagBadge, SourceBadge, StatusBadge } from '@/components/shared/status';
@@ -75,7 +76,13 @@ function Reviewer({ id, onDone }: { id: string; onDone: () => void }) {
                   <tr key={v.parameterId} className={cn(v.flag.startsWith('critical') && 'bg-destructive-soft/60')}>
                     <td className="px-3 py-2 font-medium">{v.parameterName}</td>
                     <td className={cn('tabular px-3 py-2', v.flag !== 'normal' && v.flag !== 'no_range' && 'font-semibold')}>{v.value} {v.unit}</td>
-                    <td className="whitespace-pre-line px-3 py-2 text-muted-foreground">{rangeText(v.referenceRange, v.unit) || 'Not configured'}</td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      <span className="whitespace-pre-line">{rangeText(v.referenceRange, v.unit) || 'Not set'}</span>
+                      {(() => {
+                        const p = ws.parameters.find((x) => x.id === v.parameterId);
+                        return p && <NormalValueButton className="-ml-1.5 mt-0.5 flex" testId={ws.test.id} param={p} onSaved={state.reload} />;
+                      })()}
+                    </td>
                     <td className="px-3 py-2"><FlagBadge flag={v.flag} /></td>
                     <td className="px-3 py-2"><SourceBadge source={v.source} /></td>
                   </tr>

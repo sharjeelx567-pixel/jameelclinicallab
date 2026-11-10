@@ -5,7 +5,7 @@ import type { AuthUser } from '../../common/types';
 import { ApiZodBody, ApiZodQuery, CurrentUser, RequirePermissions, ZodBody, ZodQuery } from '../../decorators';
 import { patchOf } from '../../utils';
 import { RangeImportRow, RateRow } from './rate-list';
-import { CategoryDto, TestDto, TestQuery, TestsService } from './tests.service';
+import { CategoryDto, NormalValueDto, TestDto, TestQuery, TestsService } from './tests.service';
 
 const PricesDto = z.object({
   changes: z.array(z.object({ testId: z.string().min(1).max(64), price: z.number().min(0).max(10_000_000) })).min(1).max(2000),
@@ -144,5 +144,18 @@ export class TestsController {
     @CurrentUser() user: AuthUser,
   ) {
     return this.tests.approveRange(id, parameterId, rangeId, user);
+  }
+
+  /** Quick "set normal value" from the result screens (general range of one parameter). */
+  @Put(':id/parameters/:parameterId/normal')
+  @RequirePermissions('tests.write')
+  @ApiZodBody(NormalValueDto)
+  setNormalValue(
+    @Param('id') id: string,
+    @Param('parameterId') parameterId: string,
+    @ZodBody(NormalValueDto) dto: z.infer<typeof NormalValueDto>,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.tests.setNormalValue(id, parameterId, dto, user);
   }
 }

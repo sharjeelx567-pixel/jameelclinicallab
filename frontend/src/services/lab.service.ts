@@ -24,6 +24,8 @@ export const catalogService = {
   create: (input: unknown) => api.post<LabTest>('/tests', input),
   update: (id: string, input: unknown) => api.patch<LabTest>(`/tests/${id}`, input),
   approveRange: (testId: string, parameterId: string, rangeId: string) => api.post<LabTest>(`/tests/${testId}/parameters/${parameterId}/ranges/${rangeId}/approve`),
+  setNormalValue: (testId: string, parameterId: string, input: { text?: string; low?: number; high?: number; unit?: string }) =>
+    api.put<{ approved: boolean; reflagged: number }>(`/tests/${testId}/parameters/${parameterId}/normal`, input),
   /** Whole catalogue (prices, samples, reporting times) in one request. */
   index: () => api.get<CatalogIndex>('/tests/catalog'),
   updatePrices: (changes: Array<{ testId: string; price: number }>) => api.put<{ updated: number }>('/tests/prices', { changes }),

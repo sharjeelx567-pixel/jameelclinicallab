@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertTriangle, ArrowLeft, Download, History, Printer } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Download, FilePen, History, Printer } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import * as React from 'react';
@@ -65,6 +65,11 @@ export default function ReportPreviewPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="ghost" onClick={() => setShowPrints(true)}><History /> Print history</Button>
+          {can('results.amend') && r.status !== 'superseded' && (
+            <Button variant="outline" asChild title="Open the tests of this report, press Edit result on the test to change, then approve & print again">
+              <Link href={`/orders/${r.orderId}/results`}><FilePen /> Edit report</Link>
+            </Button>
+          )}
           {can('reports.print') && r.status !== 'superseded' && (
             <>
               <Button variant="outline" onClick={() => void browserPrint()}><Printer /> Print</Button>
