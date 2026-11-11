@@ -50,13 +50,31 @@ export class NotificationsService {
     return res.items;
   }
 
+  /**
+   * Polling: only notifications created after `after` (the newest one the browser already
+   * has). Costs 1 read when nothing is new, plus 1 per new notification. Read/acknowledged
+   * state of older items is refreshed by a full request (when the bell is opened).
+   */
+  async newSince(user: AuthUser, after: string) {
+    const res = await this.store.query<NotificationDoc>(C.notifications, {
+      where: [{ field: 'createdAt', op: '>', value: after }],
+      orderBy: { field: 'createdAt', direction: 'desc' },
+      limit: NotificationsService.LIMIT,
+    });
+    const items = res.items.filter((n) => user.permissions.includes(n.audiencePermission));
+    return { items: items.map(({ readBy, ...n }) => ({ ...n, read: readBy.includes(user.uid) })), incremental: true as const, cursor: res.items[0]?.createdAt ?? after };
+  }
+
   /** Role-aware: a user only sees notifications for permissions their role holds. */
   async forUser(user: AuthUser, unreadOnly = false) {
-    const visible = (await this.latest()).filter((n) => user.permissions.includes(n.audiencePermission));
+    const latest = await this.latest();
+    const visible = latest.filter((n) => user.permissions.includes(n.audiencePermission));
     const items = (unreadOnly ? visible.filter((n) => !n.readBy.includes(user.uid)) : visible).slice(0, 100);
     return {
       items: items.map(({ readBy, ...n }) => ({ ...n, read: readBy.includes(user.uid) })),
       unread: visible.filter((n) => !n.readBy.includes(user.uid)).length,
+      // Newest notification the server looked at (visible to this user or not): the next poll starts here.
+      cursor: latest[0]?.createdAt ?? null,
     };
   }
 

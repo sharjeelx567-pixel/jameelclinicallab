@@ -113,7 +113,9 @@ export const mediaService = {
 };
 
 export const notificationsService = {
-  list: (unread = false) => api.get<{ items: AppNotification[]; unread: number }>('/notifications', { unread: unread ? 'true' : undefined }),
+  list: (unread = false) => api.get<{ items: AppNotification[]; unread: number; cursor: string | null }>('/notifications', { unread: unread ? 'true' : undefined }),
+  /** Only notifications created after `after` (cheap polling: 1 database read when none are new). */
+  newSince: (after: string) => api.get<{ items: AppNotification[]; incremental: true; cursor: string }>('/notifications', { after }),
   read: (id: string) => api.post<void>(`/notifications/${id}/read`),
   readAll: () => api.post<void>('/notifications/read-all'),
   acknowledge: (id: string) => api.post<void>(`/notifications/${id}/acknowledge`),

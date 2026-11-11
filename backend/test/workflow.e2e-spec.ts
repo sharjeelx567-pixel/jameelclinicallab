@@ -513,6 +513,12 @@ describe('administrative modules persist through the data store', () => {
     const res = await api().get('/api/v1/analytics/dashboard').set(as(ADMIN)).expect(200);
     const text = JSON.stringify(res.body.data);
     expect(text.length).toBeGreaterThan(20);
+    // SUM/COUNT aggregations must equal the figures from reading the unpaid orders one by one.
+    const unpaid = (await api().get('/api/v1/billing/outstanding').query({ limit: 100 }).set(as(ADMIN)).expect(200)).body.data.items as Array<{ balance: number }>;
+    expect(res.body.data.revenue.outstandingOrders).toBe(unpaid.length);
+    expect(res.body.data.revenue.outstanding).toBeCloseTo(unpaid.reduce((s, o) => s + o.balance, 0), 2);
+    expect(res.body.data.weeklyRegistrations).toHaveLength(7);
+    expect(res.body.data.weeklyRegistrations.reduce((s: number, d: { count: number }) => s + d.count, 0)).toBeGreaterThanOrEqual(3);
     const range = await api().get('/api/v1/analytics/range').query({ from: '2020-01-01', to: '2100-01-01' }).set(as(ADMIN)).expect(200);
     expect(range.body.data.totals.patients).toBeGreaterThanOrEqual(3);
     expect(range.body.data.totals.orders).toBeGreaterThanOrEqual(2);

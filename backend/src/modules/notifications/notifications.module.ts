@@ -17,7 +17,9 @@ export class NotificationsController {
 
   @Get()
   @RequirePermissions('notifications.read')
-  list(@CurrentUser() user: AuthUser, @Query('unread') unread?: string) {
+  list(@CurrentUser() user: AuthUser, @Query('unread') unread?: string, @Query('after') after?: string) {
+    // `after` = ISO time of the newest notification the client has → only newer ones are read.
+    if (after && /^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/.test(after)) return this.notifications.newSince(user, after);
     return this.notifications.forUser(user, unread === 'true');
   }
 

@@ -33,6 +33,8 @@ import { UsersModule } from './modules/users/users.module';
 
 @Controller('health')
 class HealthController {
+  private static lastOk: { at: number; result: Awaited<ReturnType<typeof checkDatabase>> } | null = null;
+
   constructor(
     private readonly store: DataStore,
     private readonly media: MediaProvider,
@@ -49,7 +51,11 @@ class HealthController {
   @Public()
   @Get('database')
   async database() {
+    // Public endpoint that WRITES: a healthy result is reused for 30 s so repeated calls
+    // (uptime monitors, abuse) cannot use up the daily write quota.
+    if (HealthController.lastOk && Date.now() - HealthController.lastOk.at < 30_000) return { ...HealthController.lastOk.result, cached: true };
     const result = await checkDatabase(this.store);
+    if (result.ok) HealthController.lastOk = { at: Date.now(), result };
     if (!result.ok) throw new AppError(HttpStatus.SERVICE_UNAVAILABLE, 'DATABASE_UNAVAILABLE', result.error ?? 'Database check failed', result);
     return result;
   }

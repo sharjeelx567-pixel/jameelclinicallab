@@ -146,12 +146,16 @@ export class AnalyticsService {
    */
   async monthlyRevenue(months: number) {
     const current = labDateKey(this.tz, new Date()).slice(0, 7);
+    // A month is "closed" (saved for good) only 2 hours after it ended, so a payment whose
+    // request started just before midnight on the last day has certainly been committed.
+    const settled = labDateKey(this.tz, new Date(Date.now() - 2 * 3600_000)).slice(0, 7);
     const [y, m] = current.split('-').map(Number);
     const keys = Array.from({ length: months }, (_, i) => new Date(Date.UTC(y, m - 1 - (months - 1 - i), 1)).toISOString().slice(0, 7));
-    return this.cached(`monthly:${current}:${months}`, 5 * 60_000, () =>
+    return this.cached(`monthly:${current}:${settled}:${months}`, 5 * 60_000, () =>
       Promise.all(
         keys.map(async (month) => {
-          if (month === current) return { month, revenue: await this.monthNet(month) };
+          if (month >= settled) return { month, revenue: await this.monthNet(month) };
+          // Same document id for the same month: two servers computing it at once write the same value once more, never a second total.
           const saved = await this.store.get<{ id: string; revenue: number }>(C.monthlyStats, `revenue-${month}`);
           if (saved) return { month, revenue: saved.revenue };
           const revenue = await this.monthNet(month);

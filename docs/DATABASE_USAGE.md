@@ -60,31 +60,44 @@ kept because removing indexes is not reversible without a redeploy, and they cos
 
 | What | Where | Freshness |
 |---|---|---|
-| All tests | `TestsService.allTests()` (server memory) | Reloaded whenever `catalogIndex/version` changes. Every write to tests moves this marker, so other server instances reload on their next request. |
-| Latest 60 notifications | `NotificationsService` | 50 s. Cleared on new, read or acknowledged notifications on the same server. |
+| All tests | `TestsService.allTests()` (server memory, per process) | Reloaded whenever `catalogIndex/version` changes. Every write to tests moves this marker inside a transaction, so another server's write can never be missed, and other server instances reload on their next request. Tests are never deleted, only made inactive, which is also a write. |
+| Latest 60 notifications (full list only) | `NotificationsService` | 50 s. Cleared on new, read or acknowledged notifications on the same server. **This copy is per server process**: Vercel runs several, each with its own copy. Polls do not use it: they ask only for newer notifications. |
 | Weekly registration counts | `AnalyticsService` | 2 min |
 | Top tests of the last 30 days (test names and counts) | `AnalyticsService` | 15 min |
-| Current month's revenue | `AnalyticsService` | 5 min (past months are read from `monthlyStats`) |
+| Current month's revenue | `AnalyticsService` | 5 min. A finished month is saved to `monthlyStats` 2 hours after it ends, under a fixed document id (`revenue-YYYY-MM`). Two servers saving at once write the same value, never a second total. To recompute a month, delete its document. |
 | Analytics for one date range | `AnalyticsService` | 5 min |
 
 Patient records, results, reports and payments are **never** cached. Every request reads them
 fresh. The caches live only inside the backend process and are returned only through endpoints
 that check permissions first.
 
-## Approximate read cost of common actions
+## Measured cost of common actions
 
-These estimates come from the code, not from measurements. The real numbers are in the Firebase
-console.
+Measured by `backend/test/read-costs.e2e-spec.ts`, which counts operations the way Firestore bills
+them (see the header of that file). Run it against the emulator with `npm run test:e2e:firestore`.
+The test fails if any budget is exceeded. These are emulator figures; the real totals are in the
+Firebase console.
 
-| Action | Reads |
-|---|---|
-| Any API call | +1 (user document) |
-| Dashboard (all sections) | about 40–60 plus today's payments, plus the current month's payments (at most every 5 min) |
-| Test catalogue, new order, home sampling, panels | 1–2 when the catalogue is unchanged (was about 850) |
-| Notification bell | 0–60 per check. Each tab checks every 2 min, only while visible (was up to 200 every minute). |
-| Verification queue | Pending results plus their orders, every 60 s while visible |
-| Patient detail | Patient plus up to 100 each of orders, payments and reports |
-| Analytics page (custom range) | Every order, payment and patient in the range, plus up to 5,000 audit entries. **The most expensive screen: prefer short ranges.** |
+| Action | Reads | Writes |
+|---|---|---|
+| Any authenticated request (login check) | 1 (2 for `/auth/me`) | 0 |
+| Bell poll every 2 min, nothing new | 2 | 0 |
+| Bell poll with new notifications | 2 + 1 per new notification | 0 |
+| Bell full list (page load; bell opened at most once a minute; every 30 min) | up to 61; 1 if the same server read it within 50 s | 0 |
+| Dashboard, first open / opened again | 64 / 36 | 5 the first time a finished month is saved, then 0 |
+| Test catalogue list (catalogue unchanged) | 2 | 0 |
+| Edit one test, then list it again | 14, then 2 | 4 |
+| Verification queue refresh (empty) | 2 | 0 |
+| Public `/health/database` | 1, then 0 for 30 s | 1, then 0 for 30 s |
+| One complete patient visit with 2 tests (register, order, samples, results, approval, report, payment) | about 130 (emulator) – 230 (memory store, transactions counted twice) | 52 |
+
+Daily reads per open tab (8 hours visible), not counting page navigation:
+- Bell: 240 polls × 2 = 480, plus up to 61 every 30 minutes = about 1,500.
+- Before these changes: up to 480 × 201 = 96,000.
+
+Each background tab adds nothing, because polling stops while a tab is hidden. Patient visits are
+the main remaining cost. On Spark, assuming about 230 reads per visit plus browsing, plan for about
+100–150 visits a day before reaching the 50,000-read limit.
 
 ## Errors and their meaning
 

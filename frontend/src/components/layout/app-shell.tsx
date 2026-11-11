@@ -18,6 +18,7 @@ import { AUTH_MODE, useAuth } from '@/features/auth/auth-provider';
 import { useApi } from '@/hooks/use-api';
 import { cn, timeAgo } from '@/lib/utils';
 import { authService, notificationsService } from '@/services/admin.service';
+import type { AppNotification } from '@/types';
 import { RouteProgress } from './route-progress';
 import { ThemeToggle } from './theme';
 
@@ -126,12 +127,36 @@ function GlobalSearch() {
 function NotificationsMenu() {
   const { can } = useAuth();
   const enabled = can('notifications.read');
-  // Checked every 2 minutes, only while this tab is on screen (database read quota); opening the bell refreshes at once.
-  const state = useApi(enabled ? () => notificationsService.list() : null, [enabled], { refreshMs: 120_000 });
+  // Database read quota: a full list is read on page load, when the bell is opened and every
+  // 30 minutes; in between, every 2 minutes (only while this tab is visible) the server returns
+  // only notifications newer than the newest one shown — 1 read when there is nothing new.
+  const last = React.useRef<{ items: AppNotification[]; cursor: string | null; fullAt: number } | null>(null);
+  const fetchNotifications = React.useCallback(async (full = false, force = false) => {
+    const prev = last.current;
+    // Full list: first load, every 30 min, after "mark all read", and when the bell is opened (at most once a minute).
+    if (!prev || !prev.cursor || force || Date.now() - prev.fullAt > 30 * 60_000 || (full && Date.now() - prev.fullAt > 60_000)) {
+      const res = await notificationsService.list();
+      last.current = { items: res.items, cursor: res.cursor, fullAt: Date.now() };
+    } else {
+      const res = await notificationsService.newSince(prev.cursor);
+      const known = new Set(prev.items.map((n) => n.id));
+      last.current = { ...prev, cursor: res.cursor, items: [...res.items.filter((n) => !known.has(n.id)), ...prev.items].slice(0, 100) };
+    }
+    const items = last.current.items;
+    return { items, unread: items.filter((n) => !n.read).length };
+  }, []);
+  const state = useApi(enabled ? () => fetchNotifications() : null, [enabled], { refreshMs: 120_000 });
+  const fullReload = React.useCallback(async (force = false) => {
+    try {
+      state.setData(await fetchNotifications(true, force));
+    } catch {
+      /* keep the last list */
+    }
+  }, [fetchNotifications, state]);
   if (!enabled) return null;
   const unread = state.data?.unread ?? 0;
   return (
-    <DropdownMenu onOpenChange={(o) => o && void state.reload()}>
+    <DropdownMenu onOpenChange={(o) => o && void fullReload()}>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="relative" aria-label={`Notifications${unread ? `, ${unread} unread` : ''}`}>
           <Bell />
@@ -142,7 +167,7 @@ function NotificationsMenu() {
         <div className="flex items-center justify-between px-2.5 py-2">
           <p className="text-sm font-semibold">Notifications</p>
           {unread > 0 && (
-            <button className="text-xs font-medium text-primary hover:underline" onClick={() => void notificationsService.readAll().then(state.reload)}>
+            <button className="text-xs font-medium text-primary hover:underline" onClick={() => void notificationsService.readAll().then(() => fullReload(true))}>
               Mark all read
             </button>
           )}
@@ -154,7 +179,7 @@ function NotificationsMenu() {
           ) : (
             state.data.items.slice(0, 8).map((n) => (
               <DropdownMenuItem key={n.id} asChild className="items-start">
-                <Link href={n.link ?? '/notifications'} onClick={() => void notificationsService.read(n.id)}>
+                <Link href={n.link ?? '/notifications'} onClick={() => { void notificationsService.read(n.id); if (last.current) last.current.items = last.current.items.map((x) => (x.id === n.id ? { ...x, read: true } : x)); }}>
                   <span className={cn('mt-1.5 size-2 shrink-0 rounded-full', n.read ? 'bg-transparent' : n.severity === 'critical' ? 'bg-destructive' : n.severity === 'warning' ? 'bg-warning' : 'bg-primary')} />
                   <span className="min-w-0">
                     <span className={cn('block truncate text-sm', !n.read && 'font-semibold')}>{n.title}</span>

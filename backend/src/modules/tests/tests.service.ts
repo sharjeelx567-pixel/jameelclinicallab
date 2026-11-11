@@ -101,9 +101,14 @@ export class TestsService {
 
   /** Call after writing tests. `changed` = the full new documents; `reloadAll` after bulk writes. */
   private async touch(changed: TestDoc[], reloadAll = false): Promise<void> {
-    const before = await this.catalogVersion();
     const v = `${Date.now().toString(36)}-${this.store.newId().slice(0, 8)}`;
-    await this.store.set(C.catalogIndex, 'version', { id: 'version', v });
+    // Read + move the marker atomically: if another server moved it in between, the
+    // transaction retries and sees that, so this copy is never patched over a write it missed.
+    const before = await this.store.transaction(async (tx) => {
+      const cur = (await tx.get<{ id: string; v: string }>(C.catalogIndex, 'version'))?.v ?? 'none';
+      tx.set(C.catalogIndex, 'version', { id: 'version', v });
+      return cur;
+    });
     if (!reloadAll && this.cache && this.cache.version === before) {
       const byId = new Map(this.cache.tests.map((t) => [t.id, t]));
       for (const t of changed) byId.set(t.id, t);
