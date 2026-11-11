@@ -8,6 +8,23 @@ interface ErrorBody {
 }
 
 /**
+ * Database/credential failures explained in plain words (no secrets or internals), so a
+ * lab admin can see why nothing loads: daily quota used up, or the server key is wrong.
+ */
+export function databaseProblem(exception: unknown): [number, ErrorBody] | null {
+  const e = exception as { code?: unknown; message?: unknown };
+  const code = e?.code;
+  const msg = typeof e?.message === 'string' ? e.message : '';
+  if (code === 8 || /RESOURCE_EXHAUSTED|quota exceeded/i.test(msg))
+    return [HttpStatus.SERVICE_UNAVAILABLE, { code: 'DATABASE_QUOTA_EXCEEDED', message: 'Database daily limit reached (Firebase free plan). It resets automatically after about 1 PM Pakistan time, or upgrade Firebase to the Blaze plan.' }];
+  if (code === 7 || code === 16 || code === 'app/invalid-credential' || /invalid_grant|invalid-credential|PERMISSION_DENIED|UNAUTHENTICATED|Could not load the default credentials|Failed to parse private key/i.test(msg))
+    return [HttpStatus.SERVICE_UNAVAILABLE, { code: 'DATABASE_KEY_INVALID', message: 'Server cannot open the database: the Firebase service-account key in Vercel is missing, wrong or was deleted. Update it in Vercel (backend → Settings → Environment Variables) and redeploy.' }];
+  if (code === 14 || code === 4 || /UNAVAILABLE|DEADLINE_EXCEEDED/.test(msg))
+    return [HttpStatus.SERVICE_UNAVAILABLE, { code: 'DATABASE_UNAVAILABLE', message: 'Database is not reachable right now. Please try again in a minute.' }];
+  return null;
+}
+
+/**
  * Consistent error envelope: { success: false, error: { code, message, details? } }.
  * Unexpected errors are logged server-side (without request data) and the client
  * receives a generic message — internal details never leak.
@@ -42,6 +59,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
     } else {
       const err = exception as Error;
       this.logger.error(`${req.method} ${req.path} failed: ${err?.message ?? 'unknown'}`, err?.stack);
+      const known = databaseProblem(exception);
+      if (known) [status, body] = known;
     }
 
     if (status >= 500 && exception instanceof HttpException) {
