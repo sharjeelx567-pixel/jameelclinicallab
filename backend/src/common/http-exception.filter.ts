@@ -15,12 +15,24 @@ export function databaseProblem(exception: unknown): [number, ErrorBody] | null 
   const e = exception as { code?: unknown; message?: unknown };
   const code = e?.code;
   const msg = typeof e?.message === 'string' ? e.message : '';
-  if (code === 8 || /RESOURCE_EXHAUSTED|quota exceeded/i.test(msg))
-    return [HttpStatus.SERVICE_UNAVAILABLE, { code: 'DATABASE_QUOTA_EXCEEDED', message: 'Database daily limit reached (Firebase free plan). It resets automatically after about 1 PM Pakistan time, or upgrade Firebase to the Blaze plan.' }];
+  // gRPC status from the Firestore client ("8 RESOURCE_EXHAUSTED: Quota exceeded."), shown for diagnosis.
+  const grpc = /^\s*\d+\s+([A-Z_]+):/.exec(msg)?.[1];
+  const details = grpc ? { firestoreStatus: grpc } : undefined;
+  if (code === 8 || /RESOURCE_EXHAUSTED/.test(msg)) {
+    // RESOURCE_EXHAUSTED is ALSO returned for short bursts (too many requests at once): only
+    // "Quota exceeded" means a quota (on the free plan, the daily one) was used up.
+    if (/quota exceeded/i.test(msg))
+      return [HttpStatus.SERVICE_UNAVAILABLE, { code: 'DATABASE_QUOTA_EXCEEDED', message: 'Firebase reports "Quota exceeded". On the free (Spark) plan this is the daily limit, which resets at midnight US Pacific time (about 1 PM Pakistan time). Check Firebase console → Firestore → Usage.', details }];
+    return [HttpStatus.SERVICE_UNAVAILABLE, { code: 'DATABASE_BUSY', message: 'The database is receiving too many requests at this moment. Please wait a minute and try again.', details }];
+  }
+  if (code === 9 && /index/i.test(msg))
+    return [HttpStatus.SERVICE_UNAVAILABLE, { code: 'DATABASE_INDEX_MISSING', message: 'A database index this screen needs is not deployed. Deploy firebase/firestore.indexes.json (firebase deploy --only firestore:indexes).', details }];
+  if (code === 5 && /database/i.test(msg))
+    return [HttpStatus.SERVICE_UNAVAILABLE, { code: 'DATABASE_NOT_FOUND', message: 'The Firestore database was not found in the configured Firebase project. Check FIREBASE_PROJECT_ID in Vercel.', details }];
   if (code === 7 || code === 16 || code === 'app/invalid-credential' || /invalid_grant|invalid-credential|PERMISSION_DENIED|UNAUTHENTICATED|Could not load the default credentials|Failed to parse private key/i.test(msg))
-    return [HttpStatus.SERVICE_UNAVAILABLE, { code: 'DATABASE_KEY_INVALID', message: 'Server cannot open the database: the Firebase service-account key in Vercel is missing, wrong or was deleted. Update it in Vercel (backend → Settings → Environment Variables) and redeploy.' }];
-  if (code === 14 || code === 4 || /UNAVAILABLE|DEADLINE_EXCEEDED/.test(msg))
-    return [HttpStatus.SERVICE_UNAVAILABLE, { code: 'DATABASE_UNAVAILABLE', message: 'Database is not reachable right now. Please try again in a minute.' }];
+    return [HttpStatus.SERVICE_UNAVAILABLE, { code: 'DATABASE_KEY_INVALID', message: 'Server cannot open the database: the Firebase service-account key in Vercel is missing, wrong, deleted or lacks Firestore access. Update it in Vercel (backend → Settings → Environment Variables) and redeploy.', details }];
+  if (code === 14 || code === 4 || /\bUNAVAILABLE\b|DEADLINE_EXCEEDED/.test(msg))
+    return [HttpStatus.SERVICE_UNAVAILABLE, { code: 'DATABASE_UNAVAILABLE', message: 'Database is not reachable right now. Please try again in a minute.', details }];
   return null;
 }
 

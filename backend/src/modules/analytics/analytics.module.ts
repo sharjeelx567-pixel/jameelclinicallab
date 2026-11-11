@@ -22,6 +22,20 @@ export class AnalyticsService {
     return getEnv().LAB_TIMEZONE;
   }
 
+  /**
+   * Short-lived results of the heavier statistics, kept inside this server only and
+   * returned only through the permission-checked endpoints below (database read quota).
+   */
+  private memo = new Map<string, { at: number; value: unknown }>();
+  private async cached<T>(key: string, ttlMs: number, fn: () => Promise<T>): Promise<T> {
+    const hit = this.memo.get(key);
+    if (hit && Date.now() - hit.at < ttlMs) return hit.value as T;
+    const value = await fn();
+    if (this.memo.size > 50) this.memo.clear();
+    this.memo.set(key, { at: Date.now(), value });
+    return value;
+  }
+
   private dayKeys(days: number): string[] {
     const today = labDayStart(this.tz);
     return Array.from({ length: days }, (_, i) => labDateKey(this.tz, new Date(today.getTime() - (days - 1 - i) * DAY + 12 * 3600_000)));
@@ -41,14 +55,18 @@ export class AnalyticsService {
       };
       const recent = await this.store.query<PatientDoc>(C.patients, { orderBy: { field: 'createdAt', direction: 'desc' }, limit: 6 });
       out.recentPatients = recent.items.map((p) => ({ id: p.id, mrNumber: p.mrNumber, name: p.name, gender: p.gender, ageYears: p.ageYears, createdAt: p.createdAt }));
-      const since = new Date(labDayStart(this.tz).getTime() - 6 * DAY).toISOString();
-      const week = await this.store.query<PatientDoc>(C.patients, { where: [{ field: 'createdAt', op: '>=', value: since }] });
-      const counts = new Map(this.dayKeys(7).map((k) => [k, 0]));
-      week.items.forEach((p) => {
-        const k = labDateKey(this.tz, new Date(p.createdAt));
-        if (counts.has(k)) counts.set(k, counts.get(k)! + 1);
-      });
-      out.weeklyRegistrations = [...counts].map(([date, count]) => ({ date, count }));
+      // One COUNT per day (aggregation) instead of reading every patient of the week.
+      const start = labDayStart(this.tz).getTime();
+      const keys = this.dayKeys(7);
+      out.weeklyRegistrations = await this.cached(`weekly:${keys[6]}`, 120_000, () =>
+        Promise.all(
+          keys.map(async (date, i) => {
+            const from = new Date(start - (6 - i) * DAY).toISOString();
+            const to = new Date(start - (5 - i) * DAY).toISOString();
+            return { date, count: await this.store.count(C.patients, [{ field: 'createdAt', op: '>=', value: from }, { field: 'createdAt', op: '<', value: to }]) };
+          }),
+        ),
+      );
     }
 
     if (can('orders.read')) {
@@ -60,11 +78,14 @@ export class AnalyticsService {
       };
       const recent = await this.store.query<OrderDoc>(C.orders, { orderBy: { field: 'createdAt', direction: 'desc' }, limit: 6 });
       out.recentOrders = recent.items.map((o) => ({ id: o.id, orderNumber: o.orderNumber, patientName: o.patientName, status: o.status, total: o.billing.total, priority: o.priority, createdAt: o.createdAt }));
-      const since = new Date(Date.now() - 30 * DAY).toISOString();
-      const month = await this.store.query<OrderDoc>(C.orders, { where: [{ field: 'createdAt', op: '>=', value: since }] });
-      const dist = new Map<string, number>();
-      month.items.filter((o) => o.status !== 'cancelled').forEach((o) => o.items.forEach((i) => dist.set(i.testName, (dist.get(i.testName) ?? 0) + 1)));
-      out.testDistribution = [...dist].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 8);
+      // Top tests of the last 30 days: reads that month's orders, so it is recomputed at most every 15 minutes.
+      out.testDistribution = await this.cached('testDistribution', 15 * 60_000, async () => {
+        const since = new Date(Date.now() - 30 * DAY).toISOString();
+        const month = await this.store.query<OrderDoc>(C.orders, { where: [{ field: 'createdAt', op: '>=', value: since }] });
+        const dist = new Map<string, number>();
+        month.items.filter((o) => o.status !== 'cancelled').forEach((o) => o.items.forEach((i) => dist.set(i.testName, (dist.get(i.testName) ?? 0) + 1)));
+        return [...dist].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 8);
+      });
     }
 
     if (can('samples.read')) {
@@ -85,11 +106,13 @@ export class AnalyticsService {
 
     if (can('billing.read')) {
       const todays = await this.store.query<PaymentDoc>(C.payments, { where: [{ field: 'businessDate', op: '==', value: todayKey }] });
-      const outstanding = await this.store.query<OrderDoc>(C.orders, { where: [{ field: 'billing.balance', op: '>', value: 0 }] });
+      // Unpaid balances: SUM + COUNT aggregations instead of reading every unpaid order ever.
+      const unpaid = [{ field: 'billing.balance', op: '>' as const, value: 0 }];
+      const [outstanding, outstandingOrders] = await Promise.all([this.store.sum(C.orders, 'billing.balance', unpaid), this.store.count(C.orders, unpaid)]);
       out.revenue = {
         today: round2(todays.items.reduce((s, p) => s + (p.type === 'payment' ? p.amount : -p.amount), 0)),
-        outstanding: round2(outstanding.items.reduce((s, o) => s + o.billing.balance, 0)),
-        outstandingOrders: outstanding.items.length,
+        outstanding: round2(outstanding),
+        outstandingOrders,
       };
       out.monthlyRevenue = await this.monthlyRevenue(6);
     }
@@ -109,23 +132,43 @@ export class AnalyticsService {
     return out;
   }
 
+  /** Net collections of one month (payments minus refunds), from that month's payments. */
+  private async monthNet(month: string): Promise<number> {
+    const payments = await this.store.query<PaymentDoc>(C.payments, { where: [{ field: 'businessDate', op: '>=', value: `${month}-01` }, { field: 'businessDate', op: '<=', value: `${month}-31` }] });
+    return round2(payments.items.reduce((s, p) => s + (p.type === 'payment' ? p.amount : -p.amount), 0));
+  }
+
+  /**
+   * Last N months of net revenue. A finished month cannot change any more (payments are
+   * never edited; refunds are new payments dated the day they are made), so its total is
+   * saved once in monthlyStats and read back as ONE document. Only the current month is
+   * computed from its payments, at most every 5 minutes.
+   */
   async monthlyRevenue(months: number) {
-    const now = new Date();
-    const keys = Array.from({ length: months }, (_, i) => {
-      const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (months - 1 - i), 1));
-      return d.toISOString().slice(0, 7);
-    });
-    const payments = await this.store.query<PaymentDoc>(C.payments, { where: [{ field: 'businessDate', op: '>=', value: `${keys[0]}-01` }] });
-    const sums = new Map(keys.map((k) => [k, 0]));
-    payments.items.forEach((p) => {
-      const k = p.businessDate.slice(0, 7);
-      if (sums.has(k)) sums.set(k, sums.get(k)! + (p.type === 'payment' ? p.amount : -p.amount));
-    });
-    return [...sums].map(([month, revenue]) => ({ month, revenue: round2(revenue) }));
+    const current = labDateKey(this.tz, new Date()).slice(0, 7);
+    const [y, m] = current.split('-').map(Number);
+    const keys = Array.from({ length: months }, (_, i) => new Date(Date.UTC(y, m - 1 - (months - 1 - i), 1)).toISOString().slice(0, 7));
+    return this.cached(`monthly:${current}:${months}`, 5 * 60_000, () =>
+      Promise.all(
+        keys.map(async (month) => {
+          if (month === current) return { month, revenue: await this.monthNet(month) };
+          const saved = await this.store.get<{ id: string; revenue: number }>(C.monthlyStats, `revenue-${month}`);
+          if (saved) return { month, revenue: saved.revenue };
+          const revenue = await this.monthNet(month);
+          await this.store.set(C.monthlyStats, `revenue-${month}`, { id: `revenue-${month}`, month, revenue, computedAt: this.store.now() });
+          return { month, revenue };
+        }),
+      ),
+    );
   }
 
   /** Management analytics over a date range (lab-local dates, inclusive). */
   async range(from: string, to: string) {
+    // Reads every order/payment/patient in the range: identical requests within 5 minutes reuse the result.
+    return this.cached(`range:${from}:${to}`, 5 * 60_000, () => this.computeRange(from, to));
+  }
+
+  private async computeRange(from: string, to: string) {
     const fromIso = labDayStart(this.tz, new Date(`${from}T12:00:00Z`)).toISOString();
     const toIso = new Date(labDayStart(this.tz, new Date(`${to}T12:00:00Z`)).getTime() + DAY - 1).toISOString();
     const [orders, payments, patients, tests, categories, doctors, audit] = await Promise.all([

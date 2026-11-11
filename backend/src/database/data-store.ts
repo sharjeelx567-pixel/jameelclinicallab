@@ -52,6 +52,8 @@ export abstract class DataStore {
   abstract get<T extends StoredDoc>(collection: string, id: string): Promise<T | null>;
   abstract query<T extends StoredDoc>(collection: string, options?: QueryOptions): Promise<QueryResult<T>>;
   abstract count(collection: string, where?: WhereClause[]): Promise<number>;
+  /** Total of a numeric field over matching documents (aggregation — does not read each document). */
+  abstract sum(collection: string, field: string, where?: WhereClause[]): Promise<number>;
   abstract create(collection: string, id: string, data: object): Promise<void>;
   abstract update(collection: string, id: string, patch: object): Promise<void>;
   abstract set(collection: string, id: string, data: object): Promise<void>;
@@ -89,5 +91,7 @@ export const C = {
   mediaAssets: 'mediaAssets',
   idempotencyKeys: 'idempotencyKeys',
   catalogIndex: 'catalogIndex',
+  /** Totals of finished (closed) months, written once — those payments can no longer change. */
+  monthlyStats: 'monthlyStats',
   systemHealth: 'systemHealth',
 } as const;

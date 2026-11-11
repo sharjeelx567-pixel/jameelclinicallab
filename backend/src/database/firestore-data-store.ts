@@ -1,4 +1,4 @@
-import type { Firestore, Query, Transaction } from 'firebase-admin/firestore';
+import { AggregateField, type Firestore, type Query, type Transaction } from 'firebase-admin/firestore';
 import { DataStore, DocData, QueryOptions, QueryResult, StoredDoc, TransactionContext, WhereClause } from './data-store';
 
 /** Remove undefined values — Firestore rejects them. */
@@ -60,6 +60,12 @@ export class FirestoreDataStore extends DataStore {
   async count(collection: string, where?: WhereClause[]): Promise<number> {
     const snap = await this.applyWhere(this.db.collection(collection), where).count().get();
     return snap.data().count;
+  }
+
+  /** Server-side SUM aggregation: billed as 1 read per 1,000 matched index entries, not 1 per document. */
+  async sum(collection: string, field: string, where?: WhereClause[]): Promise<number> {
+    const snap = await this.applyWhere(this.db.collection(collection), where).aggregate({ total: AggregateField.sum(field) }).get();
+    return snap.data().total ?? 0;
   }
 
   async create(collection: string, id: string, data: object): Promise<void> {

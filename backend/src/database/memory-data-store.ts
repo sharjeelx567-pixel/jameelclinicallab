@@ -110,6 +110,10 @@ export class MemoryDataStore extends DataStore {
     return this.runQuery(collection, { where }).length;
   }
 
+  async sum(collection: string, field: string, where?: WhereClause[]): Promise<number> {
+    return this.runQuery(collection, { where }).reduce((s, d) => s + (typeof getField(d, field) === 'number' ? (getField(d, field) as number) : 0), 0);
+  }
+
   async create(collection: string, id: string, data: object): Promise<void> {
     const t = this.table(collection);
     if (t.has(id)) throw new Error(`Document ${collection}/${id} already exists`);
