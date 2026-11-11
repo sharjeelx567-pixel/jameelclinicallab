@@ -79,47 +79,51 @@
   --header-height: 4rem;
 }
 
-.dark {
-  /* ── Surfaces (DARK — default) ─────────────────────────────────────────── */
-  --background: 228 62% 4%;
-  --foreground: 214 45% 96%;
-  --card: 226 45% 9%;
-  --card-foreground: 214 45% 96%;
-  --popover: 226 48% 8%;
-  --popover-foreground: 214 45% 96%;
-  --primary: 199 95% 58%;
-  --primary-foreground: 226 60% 6%;
-  --primary-soft: 205 70% 16%;
-  --primary-text: 199 95% 62%;
-  --secondary: 224 35% 15%;
-  --secondary-foreground: 214 40% 92%;
-  --muted: 224 35% 13%;
-  --muted-foreground: 218 22% 68%;
-  --accent: 210 60% 16%;
-  --accent-foreground: 199 90% 80%;
-  --border: 224 32% 18%;
-  --input: 224 30% 22%;
-  --ring: 199 95% 58%;
+/* Dark colours apply on SCREEN only: printed reports, bills and pages always use the
+   light (white-paper) colours above, whatever theme is selected. */
+@media screen {
+  .dark {
+    /* ── Surfaces (DARK — default) ─────────────────────────────────────────── */
+    --background: 228 62% 4%;
+    --foreground: 214 45% 96%;
+    --card: 226 45% 9%;
+    --card-foreground: 214 45% 96%;
+    --popover: 226 48% 8%;
+    --popover-foreground: 214 45% 96%;
+    --primary: 199 95% 58%;
+    --primary-foreground: 226 60% 6%;
+    --primary-soft: 205 70% 16%;
+    --primary-text: 199 95% 62%;
+    --secondary: 224 35% 15%;
+    --secondary-foreground: 214 40% 92%;
+    --muted: 224 35% 13%;
+    --muted-foreground: 218 22% 68%;
+    --accent: 210 60% 16%;
+    --accent-foreground: 199 90% 80%;
+    --border: 224 32% 18%;
+    --input: 224 30% 22%;
+    --ring: 199 95% 58%;
 
-  --destructive: 0 80% 62%;
-  --destructive-soft: 0 55% 16%;
-  --success: 152 60% 52%;
-  --success-soft: 152 45% 13%;
-  --warning: 36 95% 60%;
-  --warning-soft: 32 55% 14%;
-  --info: 213 95% 68%;
-  --info-soft: 216 50% 16%;
+    --destructive: 0 80% 62%;
+    --destructive-soft: 0 55% 16%;
+    --success: 152 60% 52%;
+    --success-soft: 152 45% 13%;
+    --warning: 36 95% 60%;
+    --warning-soft: 32 55% 14%;
+    --info: 213 95% 68%;
+    --info-soft: 216 50% 16%;
 
-  --sidebar: 228 55% 6%;
-  --sidebar-foreground: 214 45% 94%;
-  --sidebar-muted: 218 20% 62%;
+    --sidebar: 228 55% 6%;
+    --sidebar-foreground: 214 45% 94%;
+    --sidebar-muted: 218 20% 62%;
 
-  --glass-bg: 226 50% 12% / 0.55;
-  --glass-border: 210 60% 85% / 0.09;
-  --glass-highlight: 210 80% 90% / 0.06;
-  --shadow-card: 0 1px 0 hsl(210 80% 90% / 0.04) inset, 0 20px 40px -24px rgb(0 0 0 / 0.7);
-  --shadow-elevated: 0 30px 60px -20px rgb(0 0 0 / 0.75);
+    --glass-bg: 226 50% 12% / 0.55;
+    --glass-border: 210 60% 85% / 0.09;
+    --glass-highlight: 210 80% 90% / 0.06;
+    --shadow-card: 0 1px 0 hsl(210 80% 90% / 0.04) inset, 0 20px 40px -24px rgb(0 0 0 / 0.7);
+    --shadow-elevated: 0 30px 60px -20px rgb(0 0 0 / 0.75);
 
-  --bg-orb-opacity: 0.55;
-  --bg-grid-opacity: 0.5;
+    --bg-orb-opacity: 0.55;
+    --bg-grid-opacity: 0.5;
+  }
 }

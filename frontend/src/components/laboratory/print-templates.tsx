@@ -12,7 +12,7 @@ import type { Order, Payment, Sample } from '@/types';
  */
 export function SampleLabels({ samples, order, widthMm = 50, heightMm = 25 }: { samples: Sample[]; order: Pick<Order, 'patientName' | 'patientMrNumber' | 'orderNumber'>; widthMm?: number; heightMm?: number }) {
   return (
-    <div className="flex flex-wrap gap-[2mm]">
+    <div className="print-doc flex flex-wrap gap-[2mm]">
       {samples.map((s) => (
         <div key={s.id} className="flex flex-col justify-between overflow-hidden border border-dashed border-slate-300 p-[1.5mm] text-black print:border-none" style={{ width: `${widthMm}mm`, height: `${heightMm}mm`, breakInside: 'avoid' }}>
           <div className="flex justify-between text-[7pt] font-semibold leading-tight">
@@ -32,7 +32,7 @@ export function SampleLabels({ samples, order, widthMm = 50, heightMm = 25 }: { 
 
 export function OrderReceipt({ order, payments, patient }: { order: Order; payments: Payment[]; patient: { mobile?: string; ageYears?: number; gender?: string } | null }) {
   return (
-    <div className="mx-auto max-w-[180mm] text-[10pt] text-slate-900">
+    <div className="print-doc mx-auto max-w-[180mm] text-[10pt] text-slate-900">
       <div className="flex items-start justify-between border-b border-slate-300 pb-3">
         <div className="flex items-center gap-3">
           <LabLogoMark className="size-11" />

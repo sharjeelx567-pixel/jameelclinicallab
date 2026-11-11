@@ -41,7 +41,7 @@ export default function PatientProfilePage() {
   return (
     <div>
       {/* Print-only registration slip */}
-      <section className="hidden print:block">
+      <section className="print-doc hidden print:block">
         <div className="flex items-center justify-between border-b pb-3">
           <LabLogoMark className="size-20" alt={BRAND.name} />
           <div className="text-right text-xs">

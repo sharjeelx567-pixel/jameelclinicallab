@@ -26,10 +26,10 @@ export function PatientBill({ inv }: { inv: InvoiceData }) {
   const paidNet = b.paid - b.refunded;
   const relation = p?.guardianRelation && p.guardianRelation !== 'other' ? ` (${titleCase(p.guardianRelation)})` : '';
   return (
-    <article className="print-area mx-auto flex min-h-[273mm] w-full min-w-[180mm] max-w-[210mm] flex-col bg-white p-[10mm] text-[9.5pt] text-slate-900 shadow-elevated print:min-h-[262mm] sm:p-[12mm]">
+    <article className="print-area print-doc mx-auto flex min-h-[273mm] w-full min-w-[180mm] max-w-[210mm] flex-col bg-white p-[10mm] text-[10pt] text-slate-900 shadow-elevated print:min-h-0 sm:p-[12mm]">
       <header className="flex items-center justify-between gap-6 border-b-2 border-slate-800 pb-3">
         <div className="flex items-center gap-4">
-          <LabLogoMark className="size-28" alt={inv.lab.name} />
+          <LabLogoMark className="size-24" alt={inv.lab.name} />
           <div>
             <p className="text-[8.5pt] italic text-slate-600">{inv.lab.tagline}</p>
             {inv.lab.address && <p className="text-[8.5pt] text-slate-700">{inv.lab.address}</p>}
@@ -39,7 +39,7 @@ export function PatientBill({ inv }: { inv: InvoiceData }) {
         <p className="text-right text-[8pt] font-semibold uppercase tracking-wide text-slate-500">Keep this bill to collect your report</p>
       </header>
 
-      <h1 className="my-3 text-center text-[14pt] font-bold tracking-wide">PATIENT BILL</h1>
+      <h1 className="my-2 text-center text-[14pt] font-bold tracking-wide">PATIENT BILL</h1>
 
       <section className="grid grid-cols-2 border border-slate-800">
         <div className="flex items-center gap-3 border-r border-slate-800 p-2">
@@ -64,7 +64,7 @@ export function PatientBill({ inv }: { inv: InvoiceData }) {
         </div>
       </section>
 
-      <table className="mt-3 w-full border-collapse text-[9.5pt]">
+      <table className="mt-3 w-full border-collapse text-[10pt]">
         <thead>
           <tr className="border-y-2 border-slate-800 text-left">
             <th className="w-10 py-1.5 pl-1">Sr #</th>
@@ -76,10 +76,10 @@ export function PatientBill({ inv }: { inv: InvoiceData }) {
         <tbody>
           {inv.lines.map((l, i) => (
             <tr key={`${l.testCode}-${i}`} className="border-b border-slate-200">
-              <td className="py-1.5 pl-1 font-bold">{i + 1}</td>
-              <td className="py-1.5 font-bold">{l.testName}</td>
-              <td className="py-1.5 font-semibold">{l.reportDue ? formatDateTime(l.reportDue) : '—'}</td>
-              <td className="py-1.5 pr-1 text-right font-semibold">{money(l.amount)}</td>
+              <td className="py-1 pl-1 font-bold">{i + 1}</td>
+              <td className="py-1 font-bold">{l.testName}</td>
+              <td className="py-1 font-semibold">{l.reportDue ? formatDateTime(l.reportDue) : '—'}</td>
+              <td className="py-1 pr-1 text-right font-semibold">{money(l.amount)}</td>
             </tr>
           ))}
         </tbody>
@@ -90,7 +90,7 @@ export function PatientBill({ inv }: { inv: InvoiceData }) {
           <p className="font-bold">Rupees: {amountInWords(toBePaid)}</p>
           <p className="mt-6 text-[9pt]"><span className="font-semibold">Enter By:</span> <span className="ml-2 font-bold uppercase">{inv.order.createdByName ?? ''}</span></p>
         </div>
-        <dl className="text-[9.5pt] [&>div]:flex [&>div]:justify-between [&>div]:border-b [&>div]:border-slate-200 [&>div]:py-1">
+        <dl className="text-[10pt] [&>div]:flex [&>div]:justify-between [&>div]:border-b [&>div]:border-slate-200 [&>div]:py-1">
           <div><dt className="font-bold">Total :</dt><dd className="font-bold">{money(b.subtotal + b.collectionFee)}</dd></div>
           <div><dt className="font-bold">Discount :</dt><dd>{b.discountAmount ? money(b.discountAmount) : ''}</dd></div>
           <div><dt className="font-bold">To be Paid :</dt><dd className="font-bold">{money(toBePaid)}</dd></div>
@@ -101,8 +101,8 @@ export function PatientBill({ inv }: { inv: InvoiceData }) {
 
       <p className="mt-4 flex items-center gap-2 text-[9pt]"><span className="inline-grid size-4 place-items-center border border-slate-800 text-[8pt]">✓</span> I allow the staff for phlebotomy procedure for mentioned lab investigation(s).</p>
 
-      <div className="mt-auto pt-8">
-        <p className="text-[8.5pt] text-slate-600">Reports are released on or after the report date shown above. Please bring this bill (Patient No. / Lab No.) when collecting reports.</p>
+      <div className="mt-auto pt-4">
+        <p className="text-[9pt] text-slate-600">Reports are released on or after the report date shown above. Please bring this bill (Patient No. / Lab No.) when collecting reports.</p>
         <p className="mt-2 border-t-2 border-slate-800 pt-1.5 text-center text-[9pt] font-bold">{[inv.lab.address || inv.lab.name, inv.lab.phone, inv.lab.email].filter(Boolean).join('    •    ')}</p>
       </div>
     </article>

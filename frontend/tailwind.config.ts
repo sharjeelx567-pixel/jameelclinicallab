@@ -3,7 +3,8 @@ import animate from 'tailwindcss-animate';
 
 /** Design tokens live as CSS variables in src/styles/globals.css (light + dark). */
 const config: Config = {
-  darkMode: 'class',
+  // `dark:` utilities apply on screen only, never in print.
+  darkMode: ['variant', '@media screen { &:is(.dark *) }'],
   content: ['./src/**/*.{ts,tsx}'],
   theme: {
     container: { center: true, padding: '1rem' },

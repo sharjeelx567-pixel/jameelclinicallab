@@ -44,7 +44,7 @@ export function ReportDocument({
   );
 
   return (
-    <article className="print-area relative mx-auto flex min-h-[273mm] w-full max-w-[210mm] flex-col overflow-hidden bg-white p-[10mm] text-[9.5pt] leading-snug text-slate-900 shadow-elevated print:min-h-[262mm] sm:p-[12mm]">
+    <article className="print-area print-doc relative mx-auto flex min-h-[273mm] w-full max-w-[210mm] flex-col overflow-hidden bg-white p-[10mm] text-[10pt] leading-snug text-slate-900 shadow-elevated print:min-h-[255mm] sm:p-[12mm]">
       {watermark && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden>
           <span className={cn('-rotate-[30deg] select-none text-[64pt] font-black tracking-widest opacity-[0.07] sm:text-[88pt]', report.status === 'superseded' ? 'text-red-700' : 'text-slate-900')}>{report.status.toUpperCase()}</span>
@@ -66,7 +66,7 @@ export function ReportDocument({
       </p>
 
       {/* Patient block */}
-      <section className="grid grid-cols-2 gap-6 border-b-2 border-slate-800 py-2 text-[9.5pt]">
+      <section className="grid grid-cols-2 gap-6 border-b-2 border-slate-800 py-2 text-[10pt]">
         <div>
           <Row k="Patient Name" v={s.patient.name} />
           {s.patient.guardian && <Row k="Father/Husband" v={s.patient.guardian} />}
@@ -93,12 +93,12 @@ export function ReportDocument({
             {(i === 0 || tests[i - 1].category !== t.category) && (
               <>
                 <h2 className="mt-1 text-center font-serif text-[12pt] font-bold uppercase tracking-wide">{t.category}</h2>
-                <div className="grid grid-cols-[40%_18%_17%_25%] border-y-2 border-slate-700 bg-slate-200 px-3 py-1 text-[9pt] font-bold uppercase">
+                <div className="grid grid-cols-[40%_18%_17%_25%] border-y-2 border-slate-800 bg-slate-200 px-3 py-1 text-[9.5pt] font-bold uppercase">
                   <span>Test Name</span><span>Result</span><span>Units</span><span>Normal Value</span>
                 </div>
               </>
             )}
-            <div className="mt-1 bg-slate-100 px-3 py-[2px] text-[9pt] font-bold uppercase">
+            <div className="mt-1 border-b border-slate-300 bg-slate-100 px-3 py-[2px] text-[10pt] font-bold uppercase">
               {t.testName}
               {t.amended && <span className="ml-2 text-[7.5pt] text-sky-700">AMENDED</span>}
             </div>
@@ -110,11 +110,11 @@ export function ReportDocument({
                   const abnormal = v.flag !== 'normal' && v.flag !== 'no_range';
                   const low = v.flag.includes('low');
                   return (
-                    <div key={`${v.parameterName}-${j}`} className="grid grid-cols-[40%_18%_17%_25%] px-3 py-[2px] text-[9pt]">
+                    <div key={`${v.parameterName}-${j}`} className="grid grid-cols-[40%_18%_17%_25%] border-b border-slate-200 px-3 py-[3px] text-[10pt] last:border-b-0">
                       <span className="uppercase">{v.parameterName === 'Result' ? t.testName : v.parameterName}</span>
                       <span className={cn('tabular', abnormal && 'font-bold', abnormal && (low ? 'text-blue-700' : 'text-red-700'))}>
                         {v.value}
-                        {abnormal && <span className="ml-1.5 text-[8pt]">{FLAG_META[v.flag]?.short}</span>}
+                        {abnormal && <span className="ml-1.5 text-[8.5pt]">{FLAG_META[v.flag]?.short}</span>}
                       </span>
                       <span>{v.unit}</span>
                       <span className="whitespace-pre-line">{v.range || <span className="italic text-slate-500">—</span>}</span>
@@ -130,7 +130,7 @@ export function ReportDocument({
       </section>
 
       {/* Footer pinned to the bottom of the page */}
-      <footer className="print-avoid-break mt-auto pt-6 text-[8.5pt]">
+      <footer className="print-avoid-break mt-auto pt-6 text-[9pt]">
         <p className="border-b-2 border-slate-800 pb-0.5 text-center text-[9pt] font-semibold">Electronically verified, no signature(s) required.</p>
         <div className="flex flex-wrap justify-between gap-x-6 gap-y-2 py-1.5">
           {staff.map((p) => (
@@ -140,8 +140,8 @@ export function ReportDocument({
             </div>
           ))}
         </div>
-        <p className="border-t-2 border-slate-800 pt-1 text-[8pt]"><strong>Proviso:</strong> {s.lab.reportFooter || DEFAULT_PROVISO}</p>
-        <div className="mt-1 flex flex-wrap justify-between gap-2 text-[8pt] text-slate-700">
+        <p className="border-t-2 border-slate-800 pt-1 text-[8.5pt]"><strong>Proviso:</strong> {s.lab.reportFooter || DEFAULT_PROVISO}</p>
+        <div className="mt-1 flex flex-wrap justify-between gap-2 text-[8.5pt] text-slate-700">
           <span>Print Date &amp; Time: {formatDateTime(new Date().toISOString())}</span>
           <span>Report No. {report.reportNumber}{s.lab.phone ? ` · For any query please contact: ${s.lab.phone}` : ` · Thank you for choosing ${s.lab.name}`}</span>
           {printedBy && <span>Printed By:- {printedBy}</span>}

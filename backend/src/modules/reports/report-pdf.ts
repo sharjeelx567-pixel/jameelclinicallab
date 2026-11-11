@@ -2,7 +2,8 @@ import PDFDocument from 'pdfkit';
 import QRCode from 'qrcode';
 import type { ReportDoc, ResultFlag } from '../../common/entities';
 
-const COLORS = { ink: '#0f172a', muted: '#475569', line: '#1e293b', band: '#e2e8f0', soft: '#f1f5f9', green: '#15803d', high: '#b91c1c', low: '#1d4ed8' };
+// Print-safe: solid black ink; "muted" is near-black (grey halftones print faint on laser printers).
+const COLORS = { ink: '#000000', muted: '#1f1f1f', line: '#000000', band: '#e2e8f0', soft: '#f1f5f9', green: '#15803d', high: '#b91c1c', low: '#1d4ed8' };
 // Standard PDF fonts are WinAnsi-encoded: keep labels ASCII.
 const FLAG_LABEL: Partial<Record<ResultFlag, string>> = { high: 'H', low: 'L', critical_high: 'HH !', critical_low: 'LL !', abnormal: 'A' };
 const DEFAULT_PROVISO = 'This report relates only to the sample(s) received. Results should be interpreted by a qualified clinician in the clinical context.';
@@ -89,18 +90,23 @@ export async function renderReportPdf(
     const blockTop = y + 6;
     const rowH = 13;
     const half = width / 2;
-    rowsL.forEach(([k, v], i) => {
-      const yy = blockTop + i * rowH;
-      doc.fillColor(COLORS.muted).font('Helvetica').fontSize(8.5).text(k, left, yy, { width: 80 });
-      doc.fillColor(COLORS.ink).font('Helvetica-Bold').fontSize(9).text(`:- ${v}`, left + 82, yy, { width: half - 92, height: 12, ellipsis: true });
-    });
-    rowsR.forEach(([k, v], i) => {
-      const yy = blockTop + i * rowH;
-      doc.fillColor(COLORS.muted).font('Helvetica').fontSize(8.5).text(k, left + half + 10, yy, { width: 96 });
-      doc.fillColor(COLORS.ink).font('Helvetica-Bold').fontSize(9).text(`:- ${v}`, left + half + 108, yy, { width: half - 110, height: 12, ellipsis: true });
-    });
-    doc.image(qr, left + width - 44, blockTop + rowsR.length * rowH + 2, { width: 44 });
-    const blockBottom = Math.max(blockTop + rowsL.length * rowH, blockTop + rowsR.length * rowH + 48) + 2;
+    // Long values (e.g. a long patient name) wrap onto more lines instead of being cut off.
+    const drawRows = (rows: string[][], labelX: number, labelW: number, valueX: number, valueW: number) => {
+      let yy = blockTop;
+      for (const [k, v] of rows) {
+        doc.fillColor(COLORS.muted).font('Helvetica').fontSize(8.5).text(k, labelX, yy, { width: labelW });
+        const value = `:- ${v}`;
+        doc.font('Helvetica-Bold').fontSize(9);
+        const h = Math.min(doc.heightOfString(value, { width: valueW }), 36);
+        doc.fillColor(COLORS.ink).text(value, valueX, yy, { width: valueW, height: h + 1, ellipsis: true });
+        yy += Math.max(rowH, h + 2);
+      }
+      return yy;
+    };
+    const leftEnd = drawRows(rowsL, left, 80, left + 82, half - 92);
+    const rightEnd = drawRows(rowsR, left + half + 10, 96, left + half + 108, half - 110);
+    doc.image(qr, left + width - 44, rightEnd + 2, { width: 44 });
+    const blockBottom = Math.max(leftEnd, rightEnd + 48) + 2;
     doc.moveTo(left, blockBottom).lineTo(left + width, blockBottom).lineWidth(1.4).strokeColor(COLORS.line).stroke();
     doc.y = blockBottom + 6;
   };
@@ -205,7 +211,7 @@ export async function renderReportPdf(
     doc.fillColor(COLORS.ink).font('Helvetica-Bold').fontSize(7.8).text('Proviso: ', left, fy + 4, { continued: true })
       .font('Helvetica').text(s.lab.reportFooter || DEFAULT_PROVISO, { width, height: 22, ellipsis: true });
     fy += 30;
-    doc.fillColor(COLORS.muted).font('Helvetica').fontSize(7.5)
+    doc.fillColor(COLORS.muted).font('Helvetica').fontSize(8)
       .text(`Print Date & Time: ${printedAt}`, left, fy, { width: 150, lineBreak: false })
       .text(`Report No. ${report.reportNumber}${s.lab.phone ? `  -  For any query please contact: ${s.lab.phone}` : `  -  Thank you for choosing ${s.lab.name}`}`, left + 150, fy, { width: width - 240, align: 'center', lineBreak: false })
       .text(`Page ${i + 1} of ${range.count}`, left + width - 80, fy, { width: 80, align: 'right', lineBreak: false });
