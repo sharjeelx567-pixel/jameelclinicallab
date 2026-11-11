@@ -12,6 +12,8 @@ const fmt = (iso?: string) =>
   iso
     ? new Date(iso).toLocaleString('en-GB', { timeZone: 'Asia/Karachi', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
     : '-';
+/** Parameter names as written; ALL-CAPITALS names become "Each Word Capitalised". */
+const niceName = (s: string) => (s.length > 3 && s === s.toUpperCase() && /[A-Z]/.test(s) ? s.toLowerCase().replace(/(^|[\s(/-])([a-z])/g, (_m, p: string, c: string) => p + c.toUpperCase()) : s);
 const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
 /**
@@ -69,7 +71,7 @@ export async function renderReportPdf(
     const contact = [s.lab.address, s.lab.phone && `Ph# ${s.lab.phone}`].filter(Boolean).join('. ');
     if (contact) doc.fillColor(COLORS.ink).font('Helvetica-Bold').fontSize(9).text(contact, textX, doc.y + 2, { width: tw, align: 'center' });
     let y = Math.max(doc.y + 4, top + 74);
-    doc.fillColor(COLORS.ink).font('Times-Bold').fontSize(11.5).text(`CLINICAL LABORATORY REPORT${report.status !== 'final' ? `  (${report.status.toUpperCase()})` : ''}`, left, y, { width, align: 'center' });
+    doc.fillColor(COLORS.ink).font('Times-Bold').fontSize(11.5).text(`CLINICAL LABORATORY REPORT${report.status === 'interim' || report.status === 'superseded' ? `  (${report.status.toUpperCase()})` : ''}`, left, y, { width, align: 'center' });
     y = doc.y + 2;
     doc.moveTo(left, y).lineTo(left + width, y).lineWidth(1.4).strokeColor(COLORS.line).stroke();
 
@@ -148,7 +150,7 @@ export async function renderReportPdf(
     // Test name band
     const ty = doc.y;
     doc.rect(left + 4, ty - 1, width - 8, 13).fillColor(COLORS.soft).fill();
-    doc.fillColor(COLORS.ink).font('Helvetica-Bold').fontSize(8.8).text(`${t.testName.toUpperCase()}${t.amended ? '   (AMENDED)' : ''}`, colX[0], ty + 1, { width: width - 30 });
+    doc.fillColor(COLORS.ink).font('Helvetica-Bold').fontSize(8.8).text(t.testName.toUpperCase(), colX[0], ty + 1, { width: width - 30 });
     doc.y = ty + 15;
     if (t.status === 'pending') {
       doc.fillColor(COLORS.muted).font('Helvetica-Oblique').fontSize(8.5).text('Result pending - will be issued after verification.', colX[0], doc.y);
@@ -156,15 +158,15 @@ export async function renderReportPdf(
       continue;
     }
     for (const v of t.values) {
-      const name = (v.parameterName === 'Result' ? t.testName : v.parameterName).toUpperCase();
+      const name = niceName(v.parameterName === 'Result' ? t.testName : v.parameterName);
       const rowH = Math.max(12, doc.heightOfString(v.range || '-', { width: colW[3] }) + 2, doc.heightOfString(name, { width: colW[0] }) + 2);
       ensure(rowH + 2);
       const y = doc.y;
       const flag = FLAG_LABEL[v.flag];
-      doc.fillColor(COLORS.ink).font('Helvetica').fontSize(8.8).text(name, colX[0], y, { width: colW[0] });
-      doc.fillColor(flag ? (v.flag.includes('low') ? COLORS.low : COLORS.high) : COLORS.ink).font(flag ? 'Helvetica-Bold' : 'Helvetica').fontSize(8.8)
+      doc.fillColor(COLORS.ink).font('Helvetica').fontSize(9).text(name, colX[0], y, { width: colW[0] });
+      doc.fillColor(flag ? (v.flag.includes('low') ? COLORS.low : COLORS.high) : COLORS.ink).font('Helvetica-Bold').fontSize(9.3)
         .text(flag ? `${v.value}  ${flag}` : v.value, colX[1], y, { width: colW[1] });
-      doc.fillColor(COLORS.ink).font('Helvetica').fontSize(8.8).text(v.unit ?? '', colX[2], y, { width: colW[2] });
+      doc.fillColor(COLORS.ink).font('Helvetica').fontSize(9).text(v.unit ?? '', colX[2], y, { width: colW[2] });
       doc.fillColor(v.range ? COLORS.ink : COLORS.muted).text(v.range || '-', colX[3], y, { width: colW[3] });
       doc.y = y + rowH;
     }
@@ -172,7 +174,6 @@ export async function renderReportPdf(
       ensure(20);
       doc.fillColor(COLORS.muted).font('Helvetica-Oblique').fontSize(8.3).text(`Comment: ${t.comment}`, colX[0], doc.y + 1, { width: width - 30 });
     }
-    if (t.amended && t.amendmentReason) doc.fillColor(COLORS.low).font('Helvetica').fontSize(7.8).text(`Amended - reason: ${t.amendmentReason}`, colX[0], doc.y + 1, { width: width - 30 });
     doc.moveDown(0.5);
   }
 

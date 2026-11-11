@@ -26,17 +26,17 @@ export function PatientBill({ inv }: { inv: InvoiceData }) {
   const paidNet = b.paid - b.refunded;
   const relation = p?.guardianRelation && p.guardianRelation !== 'other' ? ` (${titleCase(p.guardianRelation)})` : '';
   return (
-    <article className="print-area print-doc mx-auto flex min-h-[273mm] w-full min-w-[180mm] max-w-[210mm] flex-col bg-white p-[10mm] text-[10pt] text-slate-900 shadow-elevated print:min-h-0 sm:p-[12mm]">
+    <article className="print-area print-doc mx-auto flex min-h-[273mm] w-full min-w-[180mm] max-w-[210mm] flex-col bg-white p-[10mm] text-[10pt] font-medium text-black shadow-elevated print:min-h-0 sm:p-[12mm]">
       <header className="flex items-center justify-between gap-6 border-b-2 border-slate-800 pb-3">
         <div className="flex items-center gap-4">
           <LabLogoMark className="size-24" alt={inv.lab.name} />
           <div>
-            <p className="text-[8.5pt] italic text-slate-600">{inv.lab.tagline}</p>
-            {inv.lab.address && <p className="text-[8.5pt] text-slate-700">{inv.lab.address}</p>}
-            <p className="text-[8.5pt] text-slate-700">{[inv.lab.phone, inv.lab.email].filter(Boolean).join(' • ')}</p>
+            <p className="text-[8.5pt] italic text-slate-900">{inv.lab.tagline}</p>
+            {inv.lab.address && <p className="text-[8.5pt] text-slate-900">{inv.lab.address}</p>}
+            <p className="text-[8.5pt] text-slate-900">{[inv.lab.phone, inv.lab.email].filter(Boolean).join(' • ')}</p>
           </div>
         </div>
-        <p className="text-right text-[8pt] font-semibold uppercase tracking-wide text-slate-500">Keep this bill to collect your report</p>
+        <p className="text-right text-[8pt] font-semibold uppercase tracking-wide text-slate-900">Keep this bill to collect your report</p>
       </header>
 
       <h1 className="my-2 text-center text-[14pt] font-bold tracking-wide">PATIENT BILL</h1>
@@ -102,7 +102,7 @@ export function PatientBill({ inv }: { inv: InvoiceData }) {
       <p className="mt-4 flex items-center gap-2 text-[9pt]"><span className="inline-grid size-4 place-items-center border border-slate-800 text-[8pt]">✓</span> I allow the staff for phlebotomy procedure for mentioned lab investigation(s).</p>
 
       <div className="mt-auto pt-4">
-        <p className="text-[9pt] text-slate-600">Reports are released on or after the report date shown above. Please bring this bill (Patient No. / Lab No.) when collecting reports.</p>
+        <p className="text-[9pt] text-slate-900">Reports are released on or after the report date shown above. Please bring this bill (Patient No. / Lab No.) when collecting reports.</p>
         <p className="mt-2 border-t-2 border-slate-800 pt-1.5 text-center text-[9pt] font-bold">{[inv.lab.address || inv.lab.name, inv.lab.phone, inv.lab.email].filter(Boolean).join('    •    ')}</p>
       </div>
     </article>

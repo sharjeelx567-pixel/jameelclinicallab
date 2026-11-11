@@ -5,6 +5,9 @@ import { FLAG_META } from '@/constants';
 import { cn, formatDateTime, titleCase } from '@/lib/utils';
 import type { Report, ReportSignatory } from '@/types';
 
+/** Parameter names as written; a name typed in ALL CAPITALS is shown as "Each Word Capitalised". */
+const niceName = (s: string) => (s.length > 3 && s === s.toUpperCase() && /[A-Z]/.test(s) ? s.toLowerCase().replace(/(^|[\s(/-])([a-z])/g, (_m, p: string, c: string) => p + c.toUpperCase()) : s);
+
 const DEFAULT_PROVISO =
   'This report relates only to the sample(s) received. Results should be interpreted by a qualified clinician in the clinical context.';
 
@@ -38,13 +41,13 @@ export function ReportDocument({
   if (!staff.length) staff.push({ name: '—' });
   const Row = ({ k, v }: { k: string; v?: ReactNode }) => (
     <div className="grid grid-cols-[7.8rem_1fr] gap-1 py-[1px]">
-      <span className="text-slate-700">{k}</span>
+      <span className="text-slate-900">{k}</span>
       <span className="font-bold">:- {v || '—'}</span>
     </div>
   );
 
   return (
-    <article className="print-area print-doc relative mx-auto flex min-h-[273mm] w-full max-w-[210mm] flex-col overflow-hidden bg-white p-[10mm] text-[10pt] leading-snug text-slate-900 shadow-elevated print:min-h-[255mm] sm:p-[12mm]">
+    <article className="print-area print-doc relative mx-auto flex min-h-[273mm] w-full max-w-[210mm] flex-col overflow-hidden bg-white p-[10mm] text-[10pt] font-medium leading-snug text-black shadow-elevated print:min-h-[245mm] print:overflow-visible sm:p-[12mm]">
       {watermark && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden>
           <span className={cn('-rotate-[30deg] select-none text-[64pt] font-black tracking-widest opacity-[0.07] sm:text-[88pt]', report.status === 'superseded' ? 'text-red-700' : 'text-slate-900')}>{report.status.toUpperCase()}</span>
@@ -62,7 +65,7 @@ export function ReportDocument({
       </header>
       <p className="mt-1 border-b-2 border-slate-800 pb-1 text-center font-serif text-[11.5pt] font-bold uppercase tracking-wide">
         Clinical Laboratory Report
-        {report.status !== 'final' && <span className="ml-2 align-middle text-[8pt] font-bold text-amber-700">({report.status})</span>}
+        {(report.status === 'interim' || report.status === 'superseded') && <span className="ml-2 align-middle text-[8pt] font-bold text-amber-700">({report.status})</span>}
       </p>
 
       {/* Patient block */}
@@ -100,10 +103,9 @@ export function ReportDocument({
             )}
             <div className="mt-1 border-b border-slate-300 bg-slate-100 px-3 py-[2px] text-[10pt] font-bold uppercase">
               {t.testName}
-              {t.amended && <span className="ml-2 text-[7.5pt] text-sky-700">AMENDED</span>}
             </div>
             {t.status === 'pending' ? (
-              <p className="px-3 py-1 text-[8.5pt] italic text-slate-500">Result pending — will be issued after verification.</p>
+              <p className="px-3 py-1 text-[8.5pt] italic text-slate-800">Result pending — will be issued after verification.</p>
             ) : (
               <>
                 {t.values.map((v, j) => {
@@ -111,18 +113,17 @@ export function ReportDocument({
                   const low = v.flag.includes('low');
                   return (
                     <div key={`${v.parameterName}-${j}`} className="grid grid-cols-[40%_18%_17%_25%] border-b border-slate-200 px-3 py-[3px] text-[10pt] last:border-b-0">
-                      <span className="uppercase">{v.parameterName === 'Result' ? t.testName : v.parameterName}</span>
-                      <span className={cn('tabular', abnormal && 'font-bold', abnormal && (low ? 'text-blue-700' : 'text-red-700'))}>
+                      <span className="text-[9.5pt]">{niceName(v.parameterName === 'Result' ? t.testName : v.parameterName)}</span>
+                      <span className={cn('tabular font-semibold', abnormal && 'font-bold', abnormal && (low ? 'text-blue-700' : 'text-red-700'))}>
                         {v.value}
                         {abnormal && <span className="ml-1.5 text-[8.5pt]">{FLAG_META[v.flag]?.short}</span>}
                       </span>
                       <span>{v.unit}</span>
-                      <span className="whitespace-pre-line">{v.range || <span className="italic text-slate-500">—</span>}</span>
+                      <span className="whitespace-pre-line">{v.range || <span className="italic text-slate-800">—</span>}</span>
                     </div>
                   );
                 })}
-                {t.comment && <p className="px-3 pt-0.5 text-[8.5pt] italic text-slate-700">Comment: {t.comment}</p>}
-                {t.amended && t.amendmentReason && <p className="px-3 text-[8pt] text-sky-700">Amended — reason: {t.amendmentReason}</p>}
+                {t.comment && <p className="px-3 pt-0.5 text-[9pt] italic text-slate-900">Comment: {t.comment}</p>}
               </>
             )}
           </div>
@@ -141,7 +142,7 @@ export function ReportDocument({
           ))}
         </div>
         <p className="border-t-2 border-slate-800 pt-1 text-[8.5pt]"><strong>Proviso:</strong> {s.lab.reportFooter || DEFAULT_PROVISO}</p>
-        <div className="mt-1 flex flex-wrap justify-between gap-2 text-[8.5pt] text-slate-700">
+        <div className="mt-1 flex flex-wrap justify-between gap-2 text-[8.5pt] text-slate-900">
           <span>Print Date &amp; Time: {formatDateTime(new Date().toISOString())}</span>
           <span>Report No. {report.reportNumber}{s.lab.phone ? ` · For any query please contact: ${s.lab.phone}` : ` · Thank you for choosing ${s.lab.name}`}</span>
           {printedBy && <span>Printed By:- {printedBy}</span>}

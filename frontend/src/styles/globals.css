@@ -288,7 +288,12 @@ tbody > tr:nth-child(n + 16) { animation-delay: 450ms; }
      clinical flags (red H / blue L), amendment notes and the branded tagline keep colour. */
   .print-doc {
     color: #000 !important;
+    font-weight: 500;
     -webkit-font-smoothing: auto;
+  }
+  /* "Normal" text on documents prints medium-weight so thin strokes never fade. */
+  .print-doc :is(.font-normal) {
+    font-weight: 500 !important;
   }
   .print-doc :is(.text-slate-400, .text-slate-500, .text-slate-600, .text-slate-700, .text-slate-800, .text-slate-900, .text-muted-foreground, .text-foreground) {
     color: #000 !important;
