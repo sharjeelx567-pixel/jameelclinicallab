@@ -17,7 +17,7 @@ import { analyzersService } from '@/services/admin.service';
 
 export default function AnalyzersPage() {
   const { can } = useAuth();
-  const state = useApi(() => analyzersService.list(), [], { refreshMs: 15_000 });
+  const state = useApi(() => analyzersService.list(), [], { refreshMs: 60_000 });
   const [open, setOpen] = React.useState(false);
   return (
     <div>

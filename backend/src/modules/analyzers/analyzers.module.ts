@@ -6,6 +6,7 @@ import { ApiZodBody, ApiZodQuery, BridgeOnly, CurrentUser, RequirePermissions, Z
 import { BridgeGuard, BridgeRequest } from '../../guards/bridge.guard';
 import { patchOf, requiredText } from '../../utils';
 import { ResultsModule } from '../results/results.module';
+import { TestsModule } from '../tests/tests.module';
 import { AnalyzerDto, AnalyzersService, BridgeMessageDto, HeartbeatDto, MessageQuery } from './analyzers.service';
 
 const PartialAnalyzer = patchOf(AnalyzerDto);
@@ -94,5 +95,5 @@ export class AnalyzersController {
   }
 }
 
-@Module({ imports: [ResultsModule], controllers: [AnalyzersController], providers: [AnalyzersService] })
+@Module({ imports: [ResultsModule, TestsModule], controllers: [AnalyzersController], providers: [AnalyzersService] })
 export class AnalyzersModule {}

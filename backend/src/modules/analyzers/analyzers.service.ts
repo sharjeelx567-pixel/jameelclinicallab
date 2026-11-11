@@ -8,6 +8,7 @@ import { diff, optionalText, paginationQuery, requiredText, sha256 } from '../..
 import { AuditService } from '../audit-logs/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AnalyzerValueInput, ResultsService } from '../results/results.service';
+import { TestsService } from '../tests/tests.service';
 
 export const AnalyzerDto = z.object({
   name: requiredText(80),
@@ -60,6 +61,7 @@ export class AnalyzersService {
     private readonly audit: AuditService,
     private readonly notifications: NotificationsService,
     private readonly results: ResultsService,
+    private readonly tests: TestsService,
   ) {}
 
   /** Connection state as displayed: stale live heartbeats degrade to "disconnected". */
@@ -82,7 +84,7 @@ export class AnalyzersService {
       this.store.query<AnalyzerMessageDoc>(C.analyzerMessages, { where: [{ field: 'analyzerId', op: '==', value: id }], orderBy: { field: 'receivedAt', direction: 'desc' }, limit: 20 }),
       this.store.query(C.auditLogs, { where: [{ field: 'entity', op: '==', value: 'analyzer' }, { field: 'entityId', op: '==', value: id }], orderBy: { field: 'at', direction: 'desc' }, limit: 50 }),
     ]);
-    const mappedTests = (await this.store.query<TestDoc>(C.tests, {})).items
+    const mappedTests = (await this.tests.allTests())
       .filter((t) => t.analyzerMappings.some((m) => m.analyzerId === id))
       .map((t) => ({ testId: t.id, testName: t.name, testCode: t.code, mapping: t.analyzerMappings.find((m) => m.analyzerId === id) }));
     return { analyzer: this.present(a), recentMessages: messages.items.map(({ raw, ...m }) => ({ ...m, rawPreview: raw.slice(0, 400) })), activity: logs.items, mappedTests };

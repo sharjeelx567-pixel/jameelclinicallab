@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { CatalogIndexDoc, PatientDoc, ReferenceRange, ResultDoc, TestCategoryDoc, TestDoc, TestParameter } from '../../common/entities';
 import { badRequest, conflict, notFound } from '../../common/errors';
 import { AuthUser, toActor } from '../../common/types';
-import { C, DataStore, WhereClause } from '../../database/data-store';
+import { C, DataStore } from '../../database/data-store';
 import { buildSearchTokens, diff, docId, mapLimit, money, normalizeSearch, optionalText, requiredText } from '../../utils';
 import { AuditService } from '../audit-logs/audit.service';
 import { flagValue, isCritical, selectRange } from './reference-range';
@@ -79,6 +79,38 @@ export class TestsService {
     private readonly audit: AuditService,
   ) {}
 
+  // ─── In-memory copy of the catalogue (database read quota) ──
+  // Reading all ~850 tests costs ~850 reads. The copy is reused while a one-document
+  // version marker is unchanged; every write to tests moves the marker, so other server
+  // instances reload and this one patches its copy.
+
+  private cache?: { version: string; tests: TestDoc[] };
+
+  private async catalogVersion(): Promise<string> {
+    return (await this.store.get<{ id: string; v: string }>(C.catalogIndex, 'version'))?.v ?? 'none';
+  }
+
+  /** Every test (including inactive). One small read when nothing changed since the last call. */
+  async allTests(): Promise<TestDoc[]> {
+    const v = await this.catalogVersion();
+    if (this.cache?.version === v) return this.cache.tests;
+    const tests = (await this.store.query<TestDoc>(C.tests, {})).items;
+    this.cache = { version: v, tests };
+    return tests;
+  }
+
+  /** Call after writing tests. `changed` = the full new documents; `reloadAll` after bulk writes. */
+  private async touch(changed: TestDoc[], reloadAll = false): Promise<void> {
+    const before = await this.catalogVersion();
+    const v = `${Date.now().toString(36)}-${this.store.newId().slice(0, 8)}`;
+    await this.store.set(C.catalogIndex, 'version', { id: 'version', v });
+    if (!reloadAll && this.cache && this.cache.version === before) {
+      const byId = new Map(this.cache.tests.map((t) => [t.id, t]));
+      for (const t of changed) byId.set(t.id, t);
+      this.cache = { version: v, tests: [...byId.values()] };
+    } else this.cache = undefined;
+  }
+
   // ─── Categories ──
   async categories(): Promise<TestCategoryDoc[]> {
     return (await this.store.query<TestCategoryDoc>(C.testCategories, { orderBy: { field: 'sortOrder' } })).items;
@@ -104,12 +136,11 @@ export class TestsService {
 
   // ─── Tests ──
   async list(q: z.infer<typeof TestQuery>) {
-    const where: WhereClause[] = [];
-    if (q.categoryId) where.push({ field: 'categoryId', op: '==', value: q.categoryId });
-    if (q.active) where.push({ field: 'active', op: '==', value: q.active === 'true' });
-    if (q.q && normalizeSearch(q.q).length >= 2) where.push({ field: 'searchTokens', op: 'array-contains', value: normalizeSearch(q.q) });
-    const res = await this.store.query<TestDoc>(C.tests, { where, orderBy: { field: 'name' } });
-    return res.items.map(({ searchTokens: _t, ...t }) => t);
+    const token = q.q && normalizeSearch(q.q).length >= 2 ? normalizeSearch(q.q) : undefined;
+    return (await this.allTests())
+      .filter((t) => (!q.categoryId || t.categoryId === q.categoryId) && (!q.active || t.active === (q.active === 'true')) && (!token || (t.searchTokens ?? []).includes(token)))
+      .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+      .map(({ searchTokens: _t, ...t }) => t);
   }
 
   async get(id: string): Promise<TestDoc> {
@@ -158,6 +189,7 @@ export class TestsService {
       updatedAt: now,
     };
     await this.store.create(C.tests, doc.id, doc);
+    await this.touch([doc]);
     await this.audit.record({ action: 'test.create', entity: 'test', entityId: doc.id, actor: toActor(actor), changes: { price: dto.price } });
     await this.rebuildCatalog();
     return doc;
@@ -174,6 +206,7 @@ export class TestsService {
     };
     next.searchTokens = buildSearchTokens(next.name, next.code);
     await this.store.set(C.tests, id, next);
+    await this.touch([next]);
     const changes = diff(before, next);
     if (changes.parameters) changes.parameters = { from: '(parameters)', to: '(parameters changed)' };
     await this.audit.record({ action: 'test.update', entity: 'test', entityId: id, actor: toActor(actor), changes });
@@ -190,12 +223,13 @@ export class TestsService {
 
   /** Rebuilt after any test write. Reads every test once; writes are rare compared with reads. */
   async rebuildCatalog(): Promise<CatalogIndexDoc> {
-    const [tests, categories] = await Promise.all([this.store.query<TestDoc>(C.tests, { orderBy: { field: 'name' } }), this.categories()]);
+    const [all, categories] = await Promise.all([this.allTests(), this.categories()]);
+    const tests = [...all].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
     const doc: CatalogIndexDoc = {
       id: 'main',
       updatedAt: this.store.now(),
       categories: categories.map((c) => ({ id: c.id, name: c.name, sortOrder: c.sortOrder, active: c.active })),
-      tests: tests.items.map((t) => ({
+      tests: tests.map((t) => ({
         id: t.id, code: t.code, name: t.name, categoryId: t.categoryId, price: t.price, sampleType: t.sampleType,
         ...(t.containerType ? { containerType: t.containerType } : {}),
         turnaroundHours: t.turnaroundHours,
@@ -210,14 +244,19 @@ export class TestsService {
   /** Bulk price change from Settings → Price list. Only rows whose price actually changed are written. */
   async updatePrices(changes: Array<{ testId: string; price: number }>, actor: AuthUser) {
     const updated: Array<{ code: string; name: string; from: number; to: number }> = [];
+    const byId = new Map((await this.allTests()).map((t) => [t.id, t]));
+    const docs: TestDoc[] = [];
     await mapLimit(changes, 20, async ({ testId, price }) => {
-      const t = await this.store.get<TestDoc>(C.tests, testId);
+      const t = byId.get(testId);
       if (!t) throw notFound(`Test ${testId}`);
       if (t.price === price) return;
-      await this.store.update(C.tests, testId, { price, updatedAt: this.store.now() });
+      const updatedAt = this.store.now();
+      await this.store.update(C.tests, testId, { price, updatedAt });
+      docs.push({ ...t, price, updatedAt });
       updated.push({ code: t.code, name: t.name, from: t.price, to: price });
     });
     if (updated.length) {
+      await this.touch(docs);
       await this.audit.record({ action: 'test.prices_update', entity: 'test', entityId: 'bulk', actor: toActor(actor), changes: { count: updated.length, prices: updated.slice(0, 200) } });
       await this.rebuildCatalog();
     }
@@ -243,7 +282,7 @@ export class TestsService {
         catId.set(d.key, doc.id);
       }
     }
-    const existing = (await this.store.query<TestDoc>(C.tests, {})).items;
+    const existing = await this.allTests();
     const byCode = new Map(existing.map((t) => [t.code.toUpperCase(), t]));
     const seen = new Set<string>();
     let created = 0, updated = 0, unchanged = 0;
@@ -294,6 +333,7 @@ export class TestsService {
     });
 
     await this.audit.record({ action: 'test.rate_list_import', entity: 'test', entityId: 'bulk', actor: toActor(actor), changes: { rows: rows.length, created, updated, unchanged } });
+    if (created || updated) await this.touch([], true);
     await this.rebuildCatalog();
     return { rows: rows.length, created, updated, unchanged };
   }
@@ -302,7 +342,7 @@ export class TestsService {
 
   /** One row per parameter of every offered test (plus one row per existing range), for filling in Excel. */
   async rangesTemplate() {
-    const tests = (await this.store.query<TestDoc>(C.tests, { where: [{ field: 'active', op: '==', value: true }] })).items.sort((a, b) => a.name.localeCompare(b.name));
+    const tests = (await this.allTests()).filter((t) => t.active).sort((a, b) => a.name.localeCompare(b.name));
     const rows: Array<Record<string, string | number>> = [];
     for (const t of tests)
       for (const p of t.parameters) {
@@ -327,8 +367,9 @@ export class TestsService {
     let testsChanged = 0, rangesWritten = 0, unitsSet = 0;
     const rangeKey = (r: Partial<ReferenceRange>) => JSON.stringify([r.gender, r.ageMinYears, r.ageMaxYears, r.low, r.high, r.text, r.criticalLow, r.criticalHigh]);
 
+    const testByCode = new Map((await this.allTests()).map((t) => [t.code.toUpperCase(), t]));
     await mapLimit([...byCode.entries()], 10, async ([code, list]) => {
-      const found = (await this.store.query<TestDoc>(C.tests, { where: [{ field: 'code', op: '==', value: code }], limit: 1 })).items[0];
+      const found = testByCode.get(code);
       if (!found) return void problems.push(`Code ${code}: test not found`);
       const params = found.parameters.map((p) => ({ ...p, ranges: [...p.ranges] }));
       let changed = false;
@@ -362,6 +403,7 @@ export class TestsService {
       testsChanged++;
     });
 
+    if (testsChanged) await this.touch([], true);
     await this.audit.record({ action: 'reference_range.bulk_import', entity: 'test', entityId: 'bulk', actor: toActor(actor), changes: { rows: rows.length, testsChanged, rangesWritten, unitsSet, problems: problems.slice(0, 50) } });
     return { rows: rows.length, testsChanged, rangesWritten, unitsSet, problems };
   }
@@ -376,10 +418,10 @@ export class TestsService {
 
   /** Preview (apply = false) or apply the standard result rows. New ranges are DRAFT until approved. */
   async standardPanels(actor: AuthUser, apply: boolean) {
-    const [tests, openIds] = await Promise.all([this.store.query<TestDoc>(C.tests, {}), this.openResultTestIds()]);
-    const plans = planPanels(tests.items, openIds);
+    const [tests, openIds] = await Promise.all([this.allTests(), this.openResultTestIds()]);
+    const plans = planPanels(tests, openIds);
     if (!apply) return { tests: plans.map(({ panel: _p, ...p }) => p), applied: 0 };
-    const byId = new Map(tests.items.map((t) => [t.id, t]));
+    const byId = new Map(tests.map((t) => [t.id, t]));
     const todo = plans.filter((p) => p.action === 'replace' || p.action === 'add');
     const now = this.store.now();
     await mapLimit(todo, 10, async (plan) => {
@@ -391,19 +433,19 @@ export class TestsService {
       action: 'test.standard_rows', entity: 'test', entityId: 'bulk', actor: toActor(actor),
       changes: { applied: todo.map((p) => `${p.code} ${p.name}: ${p.action} ${p.rows.length} rows`) },
     });
-    if (todo.length) await this.rebuildCatalog();
+    if (todo.length) await this.touch([], true);
     return { tests: plans.map(({ panel: _p, ...p }) => p), applied: todo.length };
   }
 
   /** How many ranges are waiting for approval (shown on the catalogue page). */
   async draftRangeCount() {
-    const tests = (await this.store.query<TestDoc>(C.tests, {})).items;
+    const tests = await this.allTests();
     return tests.reduce((n, t) => n + t.parameters.reduce((m, p) => m + p.ranges.filter((r) => r.status === 'draft').length, 0), 0);
   }
 
   /** Approve every draft range in one action (qualified approver only — checked by the controller). */
   async approveAllDraftRanges(actor: AuthUser) {
-    const tests = (await this.store.query<TestDoc>(C.tests, {})).items.filter((t) => t.parameters.some((p) => p.ranges.some((r) => r.status === 'draft')));
+    const tests = (await this.allTests()).filter((t) => t.parameters.some((p) => p.ranges.some((r) => r.status === 'draft')));
     const now = this.store.now();
     let approved = 0;
     await mapLimit(tests, 10, async (t) => {
@@ -417,6 +459,7 @@ export class TestsService {
       }));
       await this.store.update(C.tests, t.id, { parameters: params, updatedAt: now });
     });
+    if (tests.length) await this.touch([], true);
     await this.audit.record({ action: 'reference_range.bulk_approve', entity: 'test', entityId: 'bulk', actor: toActor(actor), changes: { tests: tests.length, approved } });
     return { tests: tests.length, approved };
   }
@@ -429,7 +472,9 @@ export class TestsService {
     range.status = 'approved';
     range.approvedBy = toActor(actor);
     range.approvedAt = this.store.now();
-    await this.store.update(C.tests, testId, { parameters: test.parameters, updatedAt: this.store.now() });
+    const updatedAt = this.store.now();
+    await this.store.update(C.tests, testId, { parameters: test.parameters, updatedAt });
+    await this.touch([{ ...test, updatedAt }]);
     await this.audit.record({
       action: 'reference_range.approve',
       entity: 'test',
@@ -476,6 +521,7 @@ export class TestsService {
     };
     const parameters = test.parameters.map((p) => (p.id === parameterId ? nextParam : p));
     await this.store.update(C.tests, testId, { parameters, updatedAt: now });
+    await this.touch([{ ...test, parameters, updatedAt: now }]);
     await this.audit.record({
       action: 'reference_range.quick_set',
       entity: 'test',

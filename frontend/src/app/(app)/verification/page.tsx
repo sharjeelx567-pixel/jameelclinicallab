@@ -129,7 +129,7 @@ function VerificationQueue() {
   const params = useSearchParams();
   const router = useRouter();
   const selected = params.get('result');
-  const queue = useApi(() => resultsService.list({ status: 'submitted', limit: 100 }), [], { refreshMs: 30_000 });
+  const queue = useApi(() => resultsService.list({ status: 'submitted', limit: 100 }), [], { refreshMs: 60_000 });
   const items = (queue.data?.items ?? []).sort((a, b) => Number(b.hasCritical) - Number(a.hasCritical) || (b.priority === 'stat' ? 1 : 0) - (a.priority === 'stat' ? 1 : 0));
   const select = (id: string | null) => router.replace(id ? `/verification?result=${id}` : '/verification', { scroll: false });
 

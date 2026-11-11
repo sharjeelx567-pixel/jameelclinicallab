@@ -19,7 +19,7 @@ import { analyzersService } from '@/services/admin.service';
 export default function AnalyzerDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { can } = useAuth();
-  const state = useApi(() => analyzersService.get(id), [id], { refreshMs: 15_000 });
+  const state = useApi(() => analyzersService.get(id), [id], { refreshMs: 60_000 });
   const [editing, setEditing] = React.useState(false);
   if (state.error) return <ErrorState error={state.error} onRetry={state.reload} />;
   if (!state.data) return <LoadingRows rows={8} />;

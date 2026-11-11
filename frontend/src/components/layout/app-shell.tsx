@@ -126,12 +126,8 @@ function GlobalSearch() {
 function NotificationsMenu() {
   const { can } = useAuth();
   const enabled = can('notifications.read');
-  const state = useApi(enabled ? () => notificationsService.list() : null, [enabled]);
-  React.useEffect(() => {
-    if (!enabled) return;
-    const t = setInterval(() => void state.reload(), 60_000);
-    return () => clearInterval(t);
-  }, [enabled, state.reload]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Checked every 2 minutes, only while this tab is on screen (database read quota); opening the bell refreshes at once.
+  const state = useApi(enabled ? () => notificationsService.list() : null, [enabled], { refreshMs: 120_000 });
   if (!enabled) return null;
   const unread = state.data?.unread ?? 0;
   return (

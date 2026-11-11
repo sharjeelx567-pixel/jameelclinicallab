@@ -23,20 +23,36 @@ export class NotificationsService {
     return { ...input, id: this.store.newId(), createdAt: this.store.now(), readBy: [] };
   }
 
+  /**
+   * Every open page polls the bell, so the latest notifications are kept for a short
+   * time and shared by all users of this server instance (database read quota).
+   */
+  private recent?: { at: number; items: NotificationDoc[] };
+  private static readonly CACHE_MS = 50_000;
+  private static readonly LIMIT = 60;
+
   notifyInTx(tx: TransactionContext, input: NotifyInput): void {
     const doc = this.build(input);
     tx.create(C.notifications, doc.id, doc);
+    this.recent = undefined;
   }
 
   async notify(input: NotifyInput): Promise<void> {
     const doc = this.build(input);
     await this.store.create(C.notifications, doc.id, doc);
+    this.recent = undefined;
+  }
+
+  private async latest(): Promise<NotificationDoc[]> {
+    if (this.recent && Date.now() - this.recent.at < NotificationsService.CACHE_MS) return this.recent.items;
+    const res = await this.store.query<NotificationDoc>(C.notifications, { orderBy: { field: 'createdAt', direction: 'desc' }, limit: NotificationsService.LIMIT });
+    this.recent = { at: Date.now(), items: res.items };
+    return res.items;
   }
 
   /** Role-aware: a user only sees notifications for permissions their role holds. */
   async forUser(user: AuthUser, unreadOnly = false) {
-    const res = await this.store.query<NotificationDoc>(C.notifications, { orderBy: { field: 'createdAt', direction: 'desc' }, limit: 200 });
-    const visible = res.items.filter((n) => user.permissions.includes(n.audiencePermission));
+    const visible = (await this.latest()).filter((n) => user.permissions.includes(n.audiencePermission));
     const items = (unreadOnly ? visible.filter((n) => !n.readBy.includes(user.uid)) : visible).slice(0, 100);
     return {
       items: items.map(({ readBy, ...n }) => ({ ...n, read: readBy.includes(user.uid) })),
@@ -57,6 +73,7 @@ export class NotificationsService {
       const n = await tx.get<NotificationDoc>(C.notifications, id);
       if (n && !n.readBy.includes(user.uid)) tx.update(C.notifications, id, { readBy: [...n.readBy, user.uid] });
     });
+    this.recent = undefined;
   }
 
   async markAllRead(user: AuthUser): Promise<void> {
@@ -69,5 +86,6 @@ export class NotificationsService {
     const n = await this.visibleOrThrow(id, user);
     if (n.kind !== 'critical_result') return;
     await this.store.update(C.notifications, id, { acknowledgedBy: toActor(user), acknowledgedAt: this.store.now() });
+    this.recent = undefined;
   }
 }

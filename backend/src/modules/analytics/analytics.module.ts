@@ -1,6 +1,6 @@
 import { Controller, Get, Injectable, Module, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import type { AnalyzerDoc, AuditLogDoc, DoctorDoc, OrderDoc, PatientDoc, PaymentDoc, ResultDoc, TestCategoryDoc, TestDoc } from '../../common/entities';
+import type { AnalyzerDoc, AuditLogDoc, CatalogIndexDoc, DoctorDoc, OrderDoc, PatientDoc, PaymentDoc, ResultDoc, TestCategoryDoc } from '../../common/entities';
 import type { AuthUser } from '../../common/types';
 import { getEnv } from '../../config/env';
 import { C, DataStore } from '../../database/data-store';
@@ -132,7 +132,8 @@ export class AnalyticsService {
       this.store.query<OrderDoc>(C.orders, { where: [{ field: 'createdAt', op: '>=', value: fromIso }, { field: 'createdAt', op: '<=', value: toIso }] }),
       this.store.query<PaymentDoc>(C.payments, { where: [{ field: 'businessDate', op: '>=', value: from }, { field: 'businessDate', op: '<=', value: to }] }),
       this.store.query<PatientDoc>(C.patients, { where: [{ field: 'createdAt', op: '>=', value: fromIso }, { field: 'createdAt', op: '<=', value: toIso }] }),
-      this.store.query<TestDoc>(C.tests, {}),
+      // The catalogue index holds every test's category in ONE document (not ~850 reads).
+      this.store.get<CatalogIndexDoc>(C.catalogIndex, 'main'),
       this.store.query<TestCategoryDoc>(C.testCategories, {}),
       this.store.query<DoctorDoc>(C.doctors, {}),
       this.store.query<AuditLogDoc>(C.auditLogs, { where: [{ field: 'at', op: '>=', value: fromIso }, { field: 'at', op: '<=', value: toIso }], limit: 5000 }),
@@ -144,7 +145,7 @@ export class AnalyticsService {
     active.forEach((o) => day(labDateKey(this.tz, new Date(o.createdAt))).orders++);
     payments.items.forEach((p) => (day(p.businessDate).revenue += p.type === 'payment' ? p.amount : -p.amount));
 
-    const testCat = new Map(tests.items.map((t) => [t.id, t.categoryId]));
+    const testCat = new Map((tests?.tests ?? []).map((t) => [t.id, t.categoryId]));
     const catName = new Map(categories.items.map((c) => [c.id, c.name]));
     const byTest = new Map<string, { testName: string; category: string; count: number; revenue: number }>();
     active.forEach((o) =>

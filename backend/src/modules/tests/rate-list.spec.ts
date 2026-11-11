@@ -119,3 +119,25 @@ describe('quick normal value from the result screens', () => {
     expect((await tests.get(typhoid.id)).parameters[0].ranges[0]).toMatchObject({ text: 'Positive', status: 'draft' });
   });
 });
+
+describe('catalogue copy in memory (read quota)', () => {
+  it('reads all tests once, reuses them, and sees writes from this and other instances', async () => {
+    const store = new MemoryDataStore();
+    const a = new TestsService(store, new AuditService(store));
+    const b = new TestsService(store, new AuditService(store)); // a second server instance
+    await a.importRateList(rows.filter((r) => ['1300', '1645'].includes(r.code)), actor);
+    const spy = jest.spyOn(store, 'query');
+    const full = () => spy.mock.calls.filter(([c, o]) => c === C.tests && !(o as { where?: unknown[] })?.where?.length).length;
+    await a.list({});
+    await a.list({ q: 'cbc' });
+    await a.draftRangeCount();
+    expect(full()).toBe(0); // already loaded during the import
+    const t = (await a.list({}))[0];
+    await b.update(t.id, { price: 999 }, actor); // written by the other instance
+    expect((await a.list({})).find((x) => x.id === t.id)!.price).toBe(999);
+    expect(full()).toBe(2); // b loaded once to rebuild its catalogue, a reloaded once after b's write
+    await a.update(t.id, { price: 1000 }, actor); // own write patches the copy, no reload
+    expect((await a.list({})).find((x) => x.id === t.id)!.price).toBe(1000);
+    expect(full()).toBe(2);
+  });
+});

@@ -24,7 +24,7 @@ function MessagesView() {
   const [status, setStatus] = React.useState(params.get('status') ?? '');
   const [analyzerId, setAnalyzerId] = React.useState(params.get('analyzerId') ?? '');
   const analyzers = useApi(() => analyzersService.list(), []);
-  const state = useApi(() => analyzersService.messages({ status: status || undefined, analyzerId: analyzerId || undefined }), [status, analyzerId], { refreshMs: 15_000 });
+  const state = useApi(() => analyzersService.messages({ status: status || undefined, analyzerId: analyzerId || undefined }), [status, analyzerId], { refreshMs: 60_000 });
   const [rawId, setRawId] = React.useState<string | null>(null);
   const raw = useApi(rawId ? () => analyzersService.message(rawId) : null, [rawId]);
   const [matching, setMatching] = React.useState<AnalyzerMessage | null>(null);
