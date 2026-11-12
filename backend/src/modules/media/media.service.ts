@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { z } from 'zod';
 import type { DoctorDoc, LabSettingsDoc, MediaAssetDoc, MediaCategory, MediaRef, UserDoc } from '../../common/entities';
 import { badRequest, forbidden, notFound } from '../../common/errors';
@@ -8,6 +8,8 @@ import { getEnv } from '../../config/env';
 import { C, DataStore, WhereClause } from '../../database/data-store';
 import { optionalText } from '../../utils';
 import { AuditService } from '../audit-logs/audit.service';
+import { AccessService } from '../auth/access.service';
+import { touchDoctors } from '../doctors/doctors.service';
 import { SettingsService } from '../settings/settings.service';
 import { sniff, UploadedBinary } from '../settings/storage.service';
 import { MediaProvider, ProviderUpload } from './media-provider';
@@ -61,6 +63,7 @@ export class MediaService {
     private readonly provider: MediaProvider,
     private readonly settings: SettingsService,
     private readonly audit: AuditService,
+    @Optional() private readonly access?: AccessService,
   ) {}
 
   config() {
@@ -189,8 +192,15 @@ export class MediaService {
     if (category === 'lab_logo') {
       const current = await this.settings.get();
       await this.store.set(C.laboratorySettings, 'main', { ...current, logo: ref, updatedAt: now });
-    } else if (category === 'doctor_profile' && ownerId) await this.store.update(C.doctors, ownerId, { photo: ref, updatedAt: now });
-    else if (category === 'staff_profile' && ownerId) await this.store.update(C.users, ownerId, { photo: ref, updatedAt: now });
+      this.settings.invalidate();
+    } else if (category === 'doctor_profile' && ownerId) {
+      await this.store.update(C.doctors, ownerId, { photo: ref, updatedAt: now });
+      await touchDoctors(this.store);
+    }
+    else if (category === 'staff_profile' && ownerId) {
+      await this.store.update(C.users, ownerId, { photo: ref, updatedAt: now });
+      this.access?.invalidateUser(ownerId);
+    }
   }
 
   private async unlink(asset: MediaAssetDoc) {
@@ -198,12 +208,15 @@ export class MediaService {
     if (asset.category === 'lab_logo') {
       const { logo, ...rest } = await this.settings.get();
       if (logo?.assetId === asset.id) await this.store.set(C.laboratorySettings, 'main', { ...rest, updatedAt: now } satisfies Omit<LabSettingsDoc, 'logo'>);
+      this.settings.invalidate();
     } else if (asset.ownerId && (asset.category === 'doctor_profile' || asset.category === 'staff_profile')) {
       const coll = asset.category === 'doctor_profile' ? C.doctors : C.users;
       const owner = await this.store.get<DoctorDoc | UserDoc>(coll, asset.ownerId);
       if (owner?.photo?.assetId === asset.id) {
         const { photo: _p, ...rest } = owner;
         await this.store.set(coll, asset.ownerId, { ...rest, updatedAt: now });
+        if (coll === C.users) this.access?.invalidateUser(asset.ownerId);
+        else await touchDoctors(this.store);
       }
     }
   }

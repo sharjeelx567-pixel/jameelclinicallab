@@ -56,15 +56,30 @@ export class SettingsService {
     private readonly audit: AuditService,
   ) {}
 
+  /**
+   * Settings are read by most requests (letterhead, billing, verification rules). One copy is
+   * kept for 60 s in this server process (database read quota); a save here replaces it at once,
+   * other server processes see a change within 60 s.
+   */
+  private cached?: { at: number; doc: LabSettingsDoc };
+
+  invalidate(): void {
+    this.cached = undefined;
+  }
+
   async get(): Promise<LabSettingsDoc> {
+    if (this.cached && Date.now() - this.cached.at < 60_000) return { ...this.cached.doc };
     const doc = await this.store.get<LabSettingsDoc>(C.laboratorySettings, 'main');
-    return { ...DEFAULT_SETTINGS, updatedAt: '', ...doc } as LabSettingsDoc;
+    const full = { ...DEFAULT_SETTINGS, updatedAt: '', ...doc } as LabSettingsDoc;
+    this.cached = { at: Date.now(), doc: full };
+    return { ...full };
   }
 
   async update(dto: z.infer<typeof UpdateSettingsDto>, actor: AuthUser): Promise<LabSettingsDoc> {
     const before = await this.get();
     const next: LabSettingsDoc = { ...before, ...dto, id: 'main', updatedAt: this.store.now(), updatedBy: toActor(actor) };
     await this.store.set(C.laboratorySettings, 'main', next);
+    this.cached = { at: Date.now(), doc: next };
     await this.audit.record({ action: 'settings.update', entity: 'settings', entityId: 'main', actor: toActor(actor), changes: diff(before, dto) });
     return next;
   }

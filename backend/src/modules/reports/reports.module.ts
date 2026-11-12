@@ -4,6 +4,7 @@ import { Throttle } from '@nestjs/throttler';
 import type { AuthUser } from '../../common/types';
 import { CurrentUser, Public, RequirePermissions } from '../../decorators';
 import { ReportsService } from './reports.service';
+import { TestsModule } from '../tests/tests.module';
 
 @ApiTags('Reports')
 @ApiBearerAuth()
@@ -65,5 +66,5 @@ export class ReportsController {
   }
 }
 
-@Module({ controllers: [ReportsController], providers: [ReportsService] })
+@Module({ imports: [TestsModule], controllers: [ReportsController], providers: [ReportsService] })
 export class ReportsModule {}

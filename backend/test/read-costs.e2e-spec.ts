@@ -131,15 +131,32 @@ describe('read and write cost of common actions', () => {
     const h1 = await cost('Public /health/database', () => api().get('/health/database').expect(200));
     const h2 = await cost('Public /health/database again within 30 s', () => api().get('/health/database').expect(200));
 
+    // Register & bill page: catalogue, letterhead settings and the doctor list.
+    const registerData = () => Promise.all([
+      api().get('/api/v1/tests/catalog').set(as(R)).expect(200),
+      api().get('/api/v1/settings/reference').set(as(R)).expect(200),
+      api().get('/api/v1/doctors').query({ status: 'active', limit: 100 }).set(as(R)).expect(200),
+    ]);
+    const reg1 = await cost('Register & bill page data (first load)', registerData);
+    const reg2 = await cost('Register & bill page data (next patient)', registerData);
+    await api().post('/api/v1/doctors').set(as(ADMIN)).send({ name: 'Dr Cache Check', specialization: 'Medicine' }).expect(201);
+    const reg3 = await cost('Register & bill page data after adding a doctor', async () => {
+      const [, , docs] = await registerData();
+      expect((docs.body.data.items as Array<{ name: string }>).some((d) => d.name === 'Dr Cache Check')).toBe(true); // new doctor visible at once
+    });
+    const report2 = await cost('Another complete patient visit (warm server)', async () => {
+      await patientVisit(5);
+    });
+
     // Budgets: fail the build when a change makes these paths expensive again.
-    expect(me.reads).toBeLessThanOrEqual(2); // guard + the profile itself
+    expect(me.reads).toBeLessThanOrEqual(1); // profile shared by the guard and /auth/me
     expect(poll.reads).toBeLessThanOrEqual(2);
     expect(pollR.reads).toBeLessThanOrEqual(2);
     expect(pollNew.reads).toBeLessThanOrEqual(15);
     expect(full.reads).toBeLessThanOrEqual(62);
     expect(fullAgain.reads).toBeLessThanOrEqual(1);
-    expect(dashWarm.reads).toBeLessThan(dashCold.reads);
-    expect(dashWarm.reads).toBeLessThanOrEqual(40);
+    expect(dashCold.reads).toBeLessThanOrEqual(80);
+    expect(dashWarm.reads).toBeLessThanOrEqual(1); // same figures reused for 30 s
     expect(testsWarm.reads).toBeLessThanOrEqual(2);
     expect(testsAfter.reads).toBeLessThanOrEqual(2);
     expect(edit.writes).toBeLessThanOrEqual(4);
@@ -147,5 +164,8 @@ describe('read and write cost of common actions', () => {
     expect(h2.writes).toBe(0);
     expect(h1.writes).toBe(1);
     expect(visit.reads).toBeLessThan(400);
+    expect(reg2.reads).toBeLessThanOrEqual(3);
+    expect(reg3.reads).toBeLessThan(reg1.reads + 2);
+    expect(report2.reads).toBeLessThan(400);
   });
 });

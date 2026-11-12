@@ -384,6 +384,24 @@ export class OrdersService {
    * Re-derive and persist order status after sample/result changes. Runs in its
    * own transaction (call after the triggering write has committed).
    */
+  /**
+   * For callers already inside a transaction that has read the order: read what the order
+   * status depends on (call BEFORE the transaction's writes — a Firestore rule), then apply
+   * `statusPatch` with the documents as they will be after the transaction. Saves the
+   * separate syncStatus transaction (which re-reads the order, its samples and results).
+   */
+  async readStatusInputs(tx: TransactionContext, orderId: string) {
+    const byOrder = [{ field: 'orderId', op: '==' as const, value: orderId }];
+    const [samples, results] = await Promise.all([tx.query<SampleDoc>(C.samples, { where: byOrder }), tx.query<ResultDoc>(C.results, { where: byOrder })]);
+    return { samples, results };
+  }
+
+  statusPatch(order: OrderDoc, samples: SampleDoc[], results: ResultDoc[], by: AuditActor, now: string): Partial<OrderDoc> | null {
+    const status = deriveOrderStatus(order, samples, results);
+    if (status === order.status) return null;
+    return { status, statusHistory: [...order.statusHistory, { status, at: now, by }], updatedAt: now };
+  }
+
   async syncStatus(orderId: string, by: AuditActor): Promise<void> {
     await this.store.transaction(async (t: TransactionContext) => {
       const order = await t.get<OrderDoc>(C.orders, orderId);

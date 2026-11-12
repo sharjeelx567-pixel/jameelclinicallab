@@ -39,7 +39,8 @@ export class AuthGuard implements CanActivate {
     if (!token) throw unauthorized();
 
     const uid = await this.verify(token);
-    const user = await this.access.loadAuthUser(uid);
+    // Reads (GET/HEAD) may use the short-lived profile copy; anything that changes data re-reads it.
+    const user = await this.access.loadAuthUser(uid, !['GET', 'HEAD'].includes(req.method));
     if (!user) throw new AppError(HttpStatus.FORBIDDEN, 'ACCOUNT_NOT_PROVISIONED', 'Your account is not authorised for this system');
     req.user = user;
 

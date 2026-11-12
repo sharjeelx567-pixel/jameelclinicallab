@@ -92,6 +92,7 @@ export class UsersService {
       updatedAt: now,
     };
     await this.store.create(C.users, uid, user);
+    this.access.invalidateUser(uid);
     await this.audit.record({ action: 'user.create', entity: 'user', entityId: uid, actor: toActor(actor), changes: { role: dto.role } });
     return user;
   }
@@ -105,6 +106,7 @@ export class UsersService {
 
     const patch = { ...dto, updatedAt: this.store.now() };
     await this.store.update(C.users, uid, patch);
+    this.access.invalidateUser(uid);
 
     if (getEnv().AUTH_MODE === 'firebase' && dto.status) {
       await this.firebase.auth.updateUser(uid, { disabled: dto.status === 'disabled' });

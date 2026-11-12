@@ -22,6 +22,11 @@ export const DoctorDto = z.object({
   status: z.enum(['active', 'inactive']).default('active'),
 });
 
+/** Moves the doctors' version marker (1 write): server copies of the doctor list reload. */
+export async function touchDoctors(store: DataStore): Promise<void> {
+  await store.set(C.counters, 'doctorsVersion', { id: 'doctorsVersion', v: `${Date.now().toString(36)}-${store.newId().slice(0, 8)}` });
+}
+
 export const DoctorQuery = paginationQuery.extend({ q: z.string().max(60).optional(), status: z.enum(['active', 'inactive']).optional() });
 
 @Injectable()
@@ -31,7 +36,25 @@ export class DoctorsService {
     private readonly audit: AuditService,
   ) {}
 
+  /**
+   * The plain doctor list (no search, first page) is loaded by Register & bill for every
+   * patient: kept in this server's memory while the doctors' version marker is unchanged
+   * (1 small read instead of up to 100). Doctors are reference data, not patient data.
+   */
+  private listCache = new Map<string, { version: string; value: Awaited<ReturnType<DoctorsService['queryList']>> }>();
+
   async list(q: z.infer<typeof DoctorQuery>) {
+    if (q.q || q.cursor) return this.queryList(q);
+    const v = (await this.store.get<{ id: string; v: string }>(C.counters, 'doctorsVersion'))?.v ?? 'none';
+    const key = `${q.status ?? 'all'}|${q.limit}`;
+    const hit = this.listCache.get(key);
+    if (hit?.version === v) return hit.value;
+    const value = await this.queryList(q);
+    this.listCache.set(key, { version: v, value });
+    return value;
+  }
+
+  private async queryList(q: z.infer<typeof DoctorQuery>) {
     const where: WhereClause[] = [];
     if (q.status) where.push({ field: 'status', op: '==', value: q.status });
     if (q.q && normalizeSearch(q.q).length >= 2) where.push({ field: 'searchTokens', op: 'array-contains', value: normalizeSearch(q.q) });
@@ -49,6 +72,7 @@ export class DoctorsService {
     const now = this.store.now();
     const doc: DoctorDoc = { ...dto, id: this.store.newId(), searchTokens: buildSearchTokens(dto.name, dto.clinic, dto.phone), createdAt: now, updatedAt: now };
     await this.store.create(C.doctors, doc.id, doc);
+    await touchDoctors(this.store);
     await this.audit.record({ action: 'doctor.create', entity: 'doctor', entityId: doc.id, actor: toActor(actor) });
     return doc;
   }
@@ -58,6 +82,7 @@ export class DoctorsService {
     const next: DoctorDoc = { ...before, ...dto, updatedAt: this.store.now() };
     next.searchTokens = buildSearchTokens(next.name, next.clinic, next.phone);
     await this.store.set(C.doctors, id, next);
+    await touchDoctors(this.store);
     await this.audit.record({ action: 'doctor.update', entity: 'doctor', entityId: id, actor: toActor(actor), changes: diff(before, next) });
     return next;
   }

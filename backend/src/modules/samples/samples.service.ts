@@ -81,6 +81,8 @@ export class SamplesService {
       if (results.some((r) => r.status === 'approved' || r.status === 'submitted'))
         throw unprocessable('RESULTS_EXIST', 'Results for this sample are already submitted or approved');
       const seq = action === 'reject' ? await reserveSequences(tx, { sample: 1 }) : null;
+      // Order status is updated in this same transaction (reads must come before writes).
+      const statusInputs = action === 'reject' ? null : await this.orders.readStatusInputs(tx, order.id);
 
       const now = this.store.now();
       const next: SampleDoc = {
@@ -138,10 +140,15 @@ export class SamplesService {
         note: dto.reason ?? dto.note,
         changes: { status: { from: sample.status, to: rule.to }, ...(replacement && { replacementSample: replacement.sampleNumber }) },
       });
+      if (statusInputs) {
+        const patch = this.orders.statusPatch(order, statusInputs.samples.map((s) => (s.id === id ? next : s)), statusInputs.results, by, now);
+        if (patch) tx.update(C.orders, order.id, patch);
+      }
       return { sample: next, replacement };
     });
 
-    await this.orders.syncStatus(updated.sample.orderId, by);
+    // A rejection also changes the order's items, so its status is recomputed afterwards.
+    if (action === 'reject') await this.orders.syncStatus(updated.sample.orderId, by);
     return updated;
   }
 

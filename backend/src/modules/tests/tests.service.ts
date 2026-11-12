@@ -117,13 +117,21 @@ export class TestsService {
   }
 
   // ─── Categories ──
+  private catCache?: { version: string; items: TestCategoryDoc[] };
+
+  /** Categories, kept with the same version marker as the tests (1 small read when unchanged). */
   async categories(): Promise<TestCategoryDoc[]> {
-    return (await this.store.query<TestCategoryDoc>(C.testCategories, { orderBy: { field: 'sortOrder' } })).items;
+    const v = await this.catalogVersion();
+    if (this.catCache?.version === v) return this.catCache.items;
+    const items = (await this.store.query<TestCategoryDoc>(C.testCategories, { orderBy: { field: 'sortOrder' } })).items;
+    this.catCache = { version: v, items };
+    return items;
   }
 
   async createCategory(dto: z.infer<typeof CategoryDto>, actor: AuthUser) {
     const doc: TestCategoryDoc = { ...dto, id: this.store.newId() };
     await this.store.create(C.testCategories, doc.id, doc);
+    await this.touch([]);
     await this.audit.record({ action: 'test_category.create', entity: 'testCategory', entityId: doc.id, actor: toActor(actor) });
     await this.rebuildCatalog();
     return doc;
@@ -134,6 +142,7 @@ export class TestsService {
     if (!before) throw notFound('Category');
     const next = { ...before, ...dto };
     await this.store.set(C.testCategories, id, next);
+    await this.touch([]);
     await this.audit.record({ action: 'test_category.update', entity: 'testCategory', entityId: id, actor: toActor(actor), changes: diff(before, next) });
     await this.rebuildCatalog();
     return next;
@@ -277,6 +286,7 @@ export class TestsService {
   async importRateList(rows: RateRowInput[], actor: AuthUser, opts: { updateNames?: boolean } = {}) {
     // Departments → categories (created once, matched by name).
     const existingCats = await this.categories();
+    let newCategories = 0;
     const catId = new Map<string, string>();
     for (const d of DEPARTMENTS) {
       const found = existingCats.find((c) => c.name.toLowerCase() === d.name.toLowerCase());
@@ -284,6 +294,7 @@ export class TestsService {
       else {
         const doc: TestCategoryDoc = { id: this.store.newId(), name: d.name, sortOrder: d.sortOrder, active: true };
         await this.store.create(C.testCategories, doc.id, doc);
+        newCategories++;
         catId.set(d.key, doc.id);
       }
     }
@@ -338,7 +349,7 @@ export class TestsService {
     });
 
     await this.audit.record({ action: 'test.rate_list_import', entity: 'test', entityId: 'bulk', actor: toActor(actor), changes: { rows: rows.length, created, updated, unchanged } });
-    if (created || updated) await this.touch([], true);
+    if (created || updated || newCategories) await this.touch([], true);
     await this.rebuildCatalog();
     return { rows: rows.length, created, updated, unchanged };
   }

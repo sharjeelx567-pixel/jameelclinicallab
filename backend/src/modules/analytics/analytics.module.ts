@@ -42,7 +42,17 @@ export class AnalyticsService {
   }
 
   /** Dashboard: every figure is computed from live records. Sections are included only if the user may see them. */
+  /**
+   * The dashboard is the landing page and is opened often. Its figures are reused for 30 s
+   * (inside this server only) and only for users with exactly the same permissions, who would
+   * be shown the same sections and figures anyway.
+   */
   async dashboard(user: AuthUser) {
+    const key = `dashboard:${[...user.permissions].sort().join(',')}`;
+    return this.cached(key, 30_000, () => this.buildDashboard(user));
+  }
+
+  private async buildDashboard(user: AuthUser) {
     const can = (p: string) => user.permissions.includes(p as never);
     const todayStart = labDayStart(this.tz).toISOString();
     const todayKey = labDateKey(this.tz, new Date());

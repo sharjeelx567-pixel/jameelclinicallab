@@ -18,8 +18,10 @@ per day**. These limits reset at midnight US Pacific time, which is about 1 PM i
   - `count` and `sum`: server-side aggregations, costing 1 read per 1,000 index entries.
   - `create`, `set`, `update`, `delete`: 1 write.
   - `transaction`.
-- Every authenticated request reads the user's document (1 read), so that a deactivated user
-  loses access immediately. The user's role permissions are cached for 15 seconds.
+- Login check: a request that only reads data reuses the user's profile and role for up to 60 s.
+  A request that changes data always re-reads the profile, and uses role permissions at most
+  15 s old. A disabled account is refused immediately in both cases, because Firebase
+  Authentication checks it on every request (`verifyIdToken(token, true)`).
 
 ## Collections
 
@@ -66,38 +68,41 @@ kept because removing indexes is not reversible without a redeploy, and they cos
 | Top tests of the last 30 days (test names and counts) | `AnalyticsService` | 15 min |
 | Current month's revenue | `AnalyticsService` | 5 min. A finished month is saved to `monthlyStats` 2 hours after it ends, under a fixed document id (`revenue-YYYY-MM`). Two servers saving at once write the same value, never a second total. To recompute a month, delete its document. |
 | Analytics for one date range | `AnalyticsService` | 5 min |
+| Login profile and role | `AccessService` (per process) | 60 s for requests that only read; changes always re-read the profile (roles at most 15 s old) |
+| Lab settings | `SettingsService.get()` (per process) | 60 s; replaced at once on save; cleared when the logo changes |
+| Active doctor list (Register page) | `DoctorsService.list` (per process) | Reloaded when `counters/doctorsVersion` changes (any doctor create, edit or photo change) |
+| Test categories | `TestsService.categories()` (per process) | Same version marker as the tests |
+| Dashboard | `AnalyticsService.dashboard` (per process) | 30 s, shared only between users with an identical permission set |
 
-Patient records, results, reports and payments are **never** cached. Every request reads them
+Patient records, results, reports and payments are **never** cached, apart from the dashboard's six most recent patients and orders (30 s, same-permission users only). Every request reads them
 fresh. The caches live only inside the backend process and are returned only through endpoints
 that check permissions first.
 
 ## Measured cost of common actions
 
-Measured by `backend/test/read-costs.e2e-spec.ts`, which counts operations the way Firestore bills
-them (see the header of that file). Run it against the emulator with `npm run test:e2e:firestore`.
-The test fails if any budget is exceeded. These are emulator figures; the real totals are in the
-Firebase console.
+Measured by `backend/test/read-costs.e2e-spec.ts`, which counts operations exactly as Firestore
+bills them. Run it on the emulator with `npm run test:e2e:firestore`; it fails if a budget is
+exceeded. These are emulator figures; the real totals are in the Firebase console.
 
-| Action | Reads | Writes |
-|---|---|---|
-| Any authenticated request (login check) | 1 (2 for `/auth/me`) | 0 |
-| Bell poll every 2 min, nothing new | 2 | 0 |
-| Bell poll with new notifications | 2 + 1 per new notification | 0 |
-| Bell full list (page load; bell opened at most once a minute; every 30 min) | up to 61; 1 if the same server read it within 50 s | 0 |
-| Dashboard, first open / opened again | 64 / 36 | 5 the first time a finished month is saved, then 0 |
-| Test catalogue list (catalogue unchanged) | 2 | 0 |
-| Edit one test, then list it again | 14, then 2 | 4 |
-| Verification queue refresh (empty) | 2 | 0 |
-| Public `/health/database` | 1, then 0 for 30 s | 1, then 0 for 30 s |
-| One complete patient visit with 2 tests (register, order, samples, results, approval, report, payment) | about 130 (emulator) – 230 (memory store, transactions counted twice) | 52 |
+| Action | Reads before (12 Nov) | Reads now | Writes |
+|---|---|---|---|
+| Any screen load (login check) | 1 | 0 (profile reused ≤ 60 s for reads) | 0 |
+| Any save/change (login check) | 1 | 1 (always re-read) | — |
+| Bell poll, nothing new | 2 | 1 | 0 |
+| Dashboard first open / again | 63 / 37 | 61 / **0** (reused 30 s per permission set) | 5 first time a month closes |
+| Register & bill page data (catalogue, letterhead, doctors) | 2 + up to 100 doctors | **2** (3 after a doctor changes) | 0 |
+| Test catalogue list | 2 | 1 | 0 |
+| Register patient | 3 | 3 | 3 |
+| Create order (2 tests) | 8 | 7 | 8 |
+| Collect + receive + accept 2 samples (6 clicks) | 48 | 42 | 13 |
+| Enter + submit 2 results | 22 | 20 | 10 |
+| Approve 2 results | 22 | 16 | 9 |
+| Generate report | 22 | **11** | 3 |
+| Take payment | 4 | 4 | 6 |
+| **Complete patient visit (2 tests)** | **129** | **103** | 52 |
 
-Daily reads per open tab (8 hours visible), not counting page navigation:
-- Bell: 240 polls × 2 = 480, plus up to 61 every 30 minutes = about 1,500.
-- Before these changes: up to 480 × 201 = 96,000.
-
-Each background tab adds nothing, because polling stops while a tab is hidden. Patient visits are
-the main remaining cost. On Spark, assuming about 230 reads per visit plus browsing, plan for about
-100–150 visits a day before reaching the 50,000-read limit.
+There are no duplicate requests: a browser check of every main screen shows that each one loads
+its own data once. Moving between screens loads only that screen's data.
 
 ## Errors and their meaning
 

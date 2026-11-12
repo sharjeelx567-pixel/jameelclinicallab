@@ -1,12 +1,13 @@
 import { Controller, Get, HttpCode, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { z } from 'zod';
-import type { LoginActivityDoc, UserDoc } from '../../common/entities';
+import type { LoginActivityDoc } from '../../common/entities';
 import { PERMISSIONS, ROLE_LABELS } from '../../common/permissions';
 import { AuthUser, RequestMeta, toActor } from '../../common/types';
 import { getEnv } from '../../config/env';
 import { C, DataStore } from '../../database/data-store';
 import { ApiZodBody, CurrentUser, Public, ReqMeta, ZodBody } from '../../decorators';
+import { AccessService } from './access.service';
 import { AuditService } from '../audit-logs/audit.service';
 
 const SessionEvent = z.object({ event: z.enum(['login', 'logout']) });
@@ -18,6 +19,7 @@ export class AuthController {
   constructor(
     private readonly store: DataStore,
     private readonly audit: AuditService,
+    private readonly access: AccessService,
   ) {}
 
   /** Lets the frontend show which auth/data modes are active (dev banners). No secrets. */
@@ -30,7 +32,8 @@ export class AuthController {
 
   @Get('me')
   async me(@CurrentUser() user: AuthUser) {
-    const doc = await this.store.get<UserDoc>(C.users, user.uid);
+    // Same profile the guard has just loaded (no second read).
+    const doc = await this.access.userDoc(user.uid);
     return { ...user, photo: doc?.photo ?? null, roleLabel: ROLE_LABELS[user.role], permissionLabels: PERMISSIONS };
   }
 

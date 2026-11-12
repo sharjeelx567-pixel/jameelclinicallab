@@ -191,6 +191,7 @@ export class ResultsService {
       if (!sample || !SAMPLE_READY.has(sample.status))
         throw unprocessable('SAMPLE_NOT_READY', 'The sample must be accepted in the laboratory before results are entered');
       if (order.status === 'cancelled') throw unprocessable('ORDER_CANCELLED', 'Order is cancelled');
+      const statusInputs = await this.orders.readStatusInputs(tx, order.id); // before any write
 
       const values = this.computeValues(test, patient, dto.values, result.values, 'manual');
       if (dto.submit) {
@@ -211,9 +212,12 @@ export class ResultsService {
         updatedAt: now,
       };
       tx.set(C.results, id, next);
+      const sampleNext = sample.status === 'accepted' ? { ...sample, status: 'processing' as const } : sample;
       if (sample.status === 'accepted') {
         tx.update(C.samples, sample.id, { status: 'processing', timeline: [...sample.timeline, { status: 'processing', at: now, by }], updatedAt: now });
       }
+      const orderPatch = this.orders.statusPatch(order, statusInputs.samples.map((s) => (s.id === sample.id ? sampleNext : s)), statusInputs.results.map((r) => (r.id === id ? next : r)), by, now);
+      if (orderPatch) tx.update(C.orders, order.id, orderPatch);
       if (dto.submit) {
         this.notifications.notifyInTx(tx, {
           kind: 'pending_verification',
@@ -233,7 +237,6 @@ export class ResultsService {
       });
       return next;
     });
-    await this.orders.syncStatus(saved.orderId, by);
     return saved;
   }
 
@@ -260,8 +263,11 @@ export class ResultsService {
       if (!settings.results.allowSelfVerification && result.enteredBy?.uid === actor.uid)
         throw forbidden('Results must be verified by a different person than the one who entered them');
       const prevVersions = await tx.query<ResultVersionDoc>(C.resultVersions, { where: [{ field: 'resultId', op: '==', value: id }] });
-      const sampleResults = await tx.query<ResultDoc>(C.results, { where: [{ field: 'sampleId', op: '==', value: result.sampleId }] });
-      const sample = await tx.get<SampleDoc>(C.samples, result.sampleId);
+      // The order's samples and results (for the sample and order status, in this same transaction).
+      const order = await tx.get<OrderDoc>(C.orders, result.orderId);
+      const statusInputs = await this.orders.readStatusInputs(tx, result.orderId);
+      const sampleResults = statusInputs.results.filter((r) => r.sampleId === result.sampleId);
+      const sample = statusInputs.samples.find((s) => s.id === result.sampleId) ?? null;
 
       const now = this.store.now();
       const next: ResultDoc = { ...result, status: 'approved', approvedBy: by, approvedAt: now, approverComment: dto.comment, rejection: undefined, updatedAt: now };
@@ -281,8 +287,19 @@ export class ResultsService {
       for (const v of prevVersions.filter((p) => !p.supersededAt)) tx.update(C.resultVersions, v.id, { supersededAt: now });
 
       const allApproved = sampleResults.every((r) => r.id === id || r.status === 'approved');
-      if (sample && allApproved && sample.status !== 'completed') {
+      const sampleDone = !!sample && allApproved && sample.status !== 'completed';
+      if (sample && sampleDone) {
         tx.update(C.samples, sample.id, { status: 'completed', timeline: [...sample.timeline, { status: 'completed', at: now, by }], updatedAt: now });
+      }
+      if (order) {
+        const orderPatch = this.orders.statusPatch(
+          order,
+          statusInputs.samples.map((s) => (sampleDone && s.id === sample!.id ? { ...s, status: 'completed' as const } : s)),
+          statusInputs.results.map((r) => (r.id === id ? next : r)),
+          by,
+          now,
+        );
+        if (orderPatch) tx.update(C.orders, order.id, orderPatch);
       }
       if (next.hasCritical && settings.notifications.criticalResults) {
         this.notifications.notifyInTx(tx, {
@@ -304,7 +321,6 @@ export class ResultsService {
       });
       return next;
     });
-    await this.orders.syncStatus(approved.orderId, by);
     return approved;
   }
 

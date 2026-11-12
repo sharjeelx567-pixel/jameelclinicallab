@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { OrderDoc, PatientDoc, ReportDoc, ReportSnapshot, ResultDoc, SampleDoc, TestCategoryDoc, TestDoc } from '../../common/entities';
+import type { OrderDoc, PatientDoc, ReportDoc, ReportSnapshot, ResultDoc, SampleDoc, TestDoc } from '../../common/entities';
 import { conflict, notFound, unprocessable } from '../../common/errors';
 import { AuthUser, toActor } from '../../common/types';
 import { getEnv } from '../../config/env';
@@ -12,6 +12,7 @@ import { transformUrl } from '../media/media-provider';
 import { SettingsService } from '../settings/settings.service';
 import { StorageService } from '../settings/storage.service';
 import { formatRange } from '../tests/reference-range';
+import { TestsService } from '../tests/tests.service';
 import { renderReportPdf } from './report-pdf';
 
 let cachedLogo: Buffer | null | undefined;
@@ -33,6 +34,7 @@ export class ReportsService {
     private readonly audit: AuditService,
     private readonly settings: SettingsService,
     private readonly storage: StorageService,
+    private readonly testsCatalog: TestsService,
   ) {}
 
   /**
@@ -41,11 +43,11 @@ export class ReportsService {
    * be approved. The snapshot is immutable, so reprints are identical.
    */
   async generate(orderId: string, actor: AuthUser): Promise<ReportDoc> {
-    const [settings, categories] = await Promise.all([
-      this.settings.get(),
-      this.store.query<TestCategoryDoc>(C.testCategories, {}),
-    ]);
-    const catName = new Map(categories.items.map((c) => [c.id, c.name]));
+    // Test categories and parameter order come from the catalogue copy kept in memory
+    // (1 small read when unchanged) instead of reading every category and each test.
+    const [settings, allTests, categories] = await Promise.all([this.settings.get(), this.testsCatalog.allTests(), this.testsCatalog.categories()]);
+    const catName = new Map(categories.map((c) => [c.id, c.name]));
+    const testById = new Map(allTests.map((t) => [t.id, t]));
 
     const report = await this.store.transaction(async (tx) => {
       const order = await tx.get<OrderDoc>(C.orders, orderId);
@@ -61,7 +63,7 @@ export class ReportsService {
       if (!patient) throw notFound('Patient');
       const tests = new Map<string, TestDoc>();
       for (const r of results) {
-        const t = await tx.get<TestDoc>(C.tests, r.testId);
+        const t = testById.get(r.testId);
         if (t) tests.set(t.id, t);
       }
       const seq = await reserveSequences(tx, { report: 1 });
