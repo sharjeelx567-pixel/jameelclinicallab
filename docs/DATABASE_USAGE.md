@@ -194,12 +194,75 @@ log.
 | DATABASE_NOT_FOUND | `NOT_FOUND … database` | Wrong `FIREBASE_PROJECT_ID`, or Firestore is not created |
 | DATABASE_UNAVAILABLE | `UNAVAILABLE`, `DEADLINE_EXCEEDED` | Temporary outage or network problem |
 
+## Usage monitor (built in)
+
+`backend/src/common/usage-monitor.ts` counts every Firestore operation **inside the backend**
+(no extra reads) and `backend/src/modules/system/usage.module.ts` reports it.
+
+**What is counted**
+- Reads and writes per API **route pattern** (e.g. `POST /api/v1/samples/:id/collect`), with
+  the same billing rules as the measurement test: get = 1 read; query = 1 per document (minimum 1);
+  count/sum = 1 per 1,000 index entries (minimum 1; a sum is counted as 1); every write = 1.
+- Per **workflow**: patient registration, order creation, sample processing, result entry,
+  result approval/correction/amendment, report generation, payments/refunds, dashboard,
+  notification bell, other.
+- Number of queries and aggregations; work outside any request (start-up seeding, scheduled jobs)
+  as "unattributed"; requests using 300+ reads ("heavy", also logged as a warning in Vercel logs).
+- Hit/miss of every server cache: tests, testCategories, settings, userProfile, rolePermissions,
+  notifications, doctorList, and the analytics caches.
+
+**Privacy:** only route patterns and numbers are recorded. Never document ids, MR or order
+numbers, names, results, query values, request bodies, tokens or passwords. A test checks this.
+
+**Storage and cost:** each server process keeps its counters in memory. It saves them (one
+`set`, no read) to `usageStats/{date}_{process}` at most every 5 minutes, and on shutdown. That is
+roughly 100–300 writes a day. The report is the only part that reads, and only when it is opened:
+one small document per server process per day.
+
+**Day boundary:** US Pacific time, the same as the Firestore free quota and the Firebase console
+(resets about 1 PM Pakistan time).
+
+**Limitation:** if a serverless process is stopped before it saves, its last few minutes of
+counters are lost. Totals can therefore be slightly lower than Firebase's.
+
+**Where to see it**
+- Page: `/system/usage`. Super Admin only; it is not in the menu.
+- API: `GET /api/v1/system/usage?days=7` (permission `roles.manage`). It returns per-day totals,
+  today's routes, workflows (reads per request) and caches, and **anomalies**:
+  - today above 70% / 90% of the free 50,000 reads, or 70% of the 20,000 writes;
+  - today's reads more than twice the earlier days' average;
+  - a route using more than twice its earlier reads per request (at least 10 requests, +3 reads);
+  - heavy requests.
+- `USAGE_MONITOR=off` in the backend environment disables the monitor completely.
+
+**Accuracy check:** on the Firestore emulator, the monitor's count for a complete patient visit
+equals the independent meter in `test/read-costs.e2e-spec.ts` exactly (61 reads). The test
+asserts this.
+
+## Comparing production with the emulator measurements
+
+1. **Firebase console → Firestore → Usage** shows the real billed reads and writes per day
+   (Pacific time). This is the authoritative number.
+2. **`/system/usage`** shows the same days as counted by the backend, split by route and
+   workflow. The totals should be close to the console. They are slightly lower when processes
+   stopped before saving.
+   - **Console clearly higher:** something else is reading the database. Check the Firebase
+     console's own data viewer (browsing data there costs reads), other apps or scripts using the
+     same project, and Vercel logs.
+3. **Per-workflow figures:** compare "reads / request" for each workflow with the emulator table
+   above. For example, a sample click should be about 3 reads and a result entry about 6.
+   - A clearly higher number in production means old orders (without the status summary) are
+     still being processed, or a regression. Run `npm run test:e2e:firestore` with
+     `READ_DETAIL=1` to see the per-collection breakdown.
+4. **Day comparison:** reads per patient seen ≈ total reads ÷ number of visits that day. The
+   emulator visit costs 61; normal screen browsing adds to that.
+
 ## Monitoring routine
 
-1. **Daily:** Firebase console → Firestore Database → **Usage**. Look at reads, writes and deletes
-   per day against 50k/20k/20k.
-2. **When a day is high:** Vercel → backend project → **Logs**. Filter on `failed:` for errors and
-   look for request paths that repeat many times.
+1. **Daily:** check `/system/usage` (anomalies, % of the free quota) and, from time to time, the
+   Firebase console Usage graph.
+2. **When a day is high:** open `/system/usage` → "Today by API route" to see which screen or
+   action used the reads. Vercel logs show "Heavy request" warnings and errors (`failed:`).
 3. **Alerting:** the Spark plan has no billing alerts. On Blaze, set a budget alert (Google Cloud
    console → Billing → Budgets) at a small amount.
 4. Code alone cannot guarantee that the Spark limits are never reached. Usage grows with the

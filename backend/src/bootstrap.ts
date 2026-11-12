@@ -9,6 +9,7 @@ import { getEnv } from './config/env';
 import { DataStore } from './database/data-store';
 import { checkDatabase } from './database/database-health';
 import { seedDevelopmentData } from './database/seed';
+import { usage } from './common/usage-monitor';
 
 /** Shared by main.ts and the e2e tests so both run the exact same pipeline. */
 export async function createApp(options: { logger?: boolean } = {}): Promise<INestApplication> {
@@ -18,6 +19,7 @@ export async function createApp(options: { logger?: boolean } = {}): Promise<INe
   });
   app.set('trust proxy', 1);
   app.setGlobalPrefix('api/v1', { exclude: ['health', 'health/database'] });
+  app.use(usage.middleware); // Firestore usage counters per route (no request data recorded)
   app.use(helmet());
   // Friendly answer for the bare service addresses (people open these in a browser to "check the API").
   const server = app.getHttpAdapter().getInstance() as Express;

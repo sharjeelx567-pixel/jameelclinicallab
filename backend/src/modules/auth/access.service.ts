@@ -3,6 +3,7 @@ import type { RoleDoc, UserDoc } from '../../common/entities';
 import { ALL_PERMISSIONS, DEFAULT_ROLE_PERMISSIONS, Permission, ROLE_IDS, ROLE_LABELS, RoleId } from '../../common/permissions';
 import type { AuthUser } from '../../common/types';
 import { C, DataStore } from '../../database/data-store';
+import { usage } from '../../common/usage-monitor';
 
 /**
  * Database read quota: every API request needs the caller's profile and role permissions.
@@ -35,7 +36,9 @@ export class AccessService {
 
   async permissionsFor(role: RoleId, maxAgeMs = WRITE_ROLE_TTL_MS): Promise<Permission[]> {
     const cached = this.roleCache.get(role);
-    if (cached && Date.now() - cached.at < maxAgeMs) return cached.permissions;
+    const hit = !!cached && Date.now() - cached.at < maxAgeMs;
+    usage.cache('rolePermissions', hit);
+    if (hit) return cached!.permissions;
     const doc = await this.store.get<RoleDoc>(C.roles, role);
     const permissions = (doc?.permissions ?? DEFAULT_ROLE_PERMISSIONS[role] ?? []).filter((p) =>
       ALL_PERMISSIONS.includes(p),
@@ -47,7 +50,9 @@ export class AccessService {
   /** The stored profile; `fresh` forces a database read. */
   async userDoc(uid: string, fresh = false): Promise<UserDoc | null> {
     const hit = this.userCache.get(uid);
-    if (!fresh && hit && Date.now() - hit.at < READ_TTL_MS) return hit.doc;
+    const reuse = !fresh && !!hit && Date.now() - hit.at < READ_TTL_MS;
+    usage.cache(fresh ? 'userProfile (writes: always fresh)' : 'userProfile', reuse);
+    if (reuse) return hit!.doc;
     const doc = await this.store.get<UserDoc>(C.users, uid);
     if (this.userCache.size > 500) this.userCache.clear();
     this.userCache.set(uid, { doc, at: Date.now() });

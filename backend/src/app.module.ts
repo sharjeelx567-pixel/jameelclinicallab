@@ -30,6 +30,7 @@ import { SamplesModule } from './modules/samples/samples.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { TestsModule } from './modules/tests/tests.module';
 import { UsersModule } from './modules/users/users.module';
+import { UsageModule } from './modules/system/usage.module';
 
 @Controller('health')
 class HealthController {
@@ -75,6 +76,7 @@ class HealthController {
     DoctorsModule,
     PanelsModule,
     TestsModule,
+    UsageModule,
     OrdersModule,
     SamplesModule,
     ResultsModule,

@@ -8,6 +8,7 @@ import { CurrentUser, RequirePermissions } from '../../decorators';
 import { labDateKey, labDayStart, round2 } from '../../utils';
 import { InventoryModule, InventoryService } from '../inventory/inventory.module';
 import { HEARTBEAT_STALE_MS } from '../analyzers/analyzers.service';
+import { usage } from '../../common/usage-monitor';
 
 const DAY = 86400_000;
 
@@ -29,7 +30,9 @@ export class AnalyticsService {
   private memo = new Map<string, { at: number; value: unknown }>();
   private async cached<T>(key: string, ttlMs: number, fn: () => Promise<T>): Promise<T> {
     const hit = this.memo.get(key);
-    if (hit && Date.now() - hit.at < ttlMs) return hit.value as T;
+    const fresh = !!hit && Date.now() - hit.at < ttlMs;
+    usage.cache(`analytics:${key.split(':')[0]}`, fresh);
+    if (fresh) return hit!.value as T;
     const value = await fn();
     if (this.memo.size > 50) this.memo.clear();
     this.memo.set(key, { at: Date.now(), value });

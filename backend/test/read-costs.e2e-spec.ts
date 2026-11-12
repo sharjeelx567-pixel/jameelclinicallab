@@ -109,7 +109,12 @@ describe('read and write cost of common actions', () => {
     for (const [id, price] of [['test-cbc', 1200], ['test-fbs', 300]] as const) await api().patch(`/api/v1/tests/${id}`).set(as(ADMIN)).send({ price }).expect(200);
     for (let i = 0; i < 3; i++) await patientVisit(i); // some history and notifications
 
+    const { usage } = await import('../src/common/usage-monitor');
+    const monitored = () => usage.snapshot().routes.reduce((n, r) => n + r.reads, 0);
+    const before = monitored();
     const visit = await cost('Complete patient visit (2 tests, register → paid report)', () => patientVisit(3, true));
+    // The production usage monitor must count exactly what this independent meter counts (on Firestore).
+    if (USE_FIRESTORE) expect(monitored() - before).toBe(visit.reads);
     const me = await cost('Any authenticated request (GET /auth/me)', () => api().get('/api/v1/auth/me').set(as(ADMIN)).expect(200));
 
     const full = await cost('Bell: full list (first load / bell opened)', () => api().get('/api/v1/notifications').set(as(ADMIN)).expect(200));

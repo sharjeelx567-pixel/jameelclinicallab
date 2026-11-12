@@ -93,5 +93,7 @@ export const C = {
   catalogIndex: 'catalogIndex',
   /** Totals of finished (closed) months, written once — those payments can no longer change. */
   monthlyStats: 'monthlyStats',
+  /** Usage monitor: one document per server process per day (written only by the monitor). */
+  usageStats: 'usageStats',
   systemHealth: 'systemHealth',
 } as const;

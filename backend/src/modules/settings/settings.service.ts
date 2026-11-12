@@ -5,6 +5,7 @@ import { AuthUser, toActor } from '../../common/types';
 import { C, DataStore } from '../../database/data-store';
 import { diff, optionalText, requiredText, text } from '../../utils';
 import { AuditService } from '../audit-logs/audit.service';
+import { usage } from '../../common/usage-monitor';
 
 export const DEFAULT_SETTINGS: Omit<LabSettingsDoc, 'updatedAt'> = {
   id: 'main',
@@ -68,7 +69,9 @@ export class SettingsService {
   }
 
   async get(): Promise<LabSettingsDoc> {
-    if (this.cached && Date.now() - this.cached.at < 60_000) return { ...this.cached.doc };
+    const hit = !!this.cached && Date.now() - this.cached.at < 60_000;
+    usage.cache('settings', hit);
+    if (hit) return { ...this.cached!.doc };
     const doc = await this.store.get<LabSettingsDoc>(C.laboratorySettings, 'main');
     const full = { ...DEFAULT_SETTINGS, updatedAt: '', ...doc } as LabSettingsDoc;
     this.cached = { at: Date.now(), doc: full };

@@ -1,4 +1,5 @@
 import { Global, Logger, Module } from '@nestjs/common';
+import { usage } from '../common/usage-monitor';
 import { getEnv } from '../config/env';
 import { FirebaseService } from '../firebase/firebase.service';
 import { DataStore } from './data-store';
@@ -18,9 +19,10 @@ import { MemoryDataStore } from './memory-data-store';
           new Logger('DatabaseModule').warn(
             '⚠ DEVELOPMENT IN-MEMORY DATA STORE — nothing is persisted; all data is lost on restart.',
           );
-          return new MemoryDataStore();
+          return usage.instrument(new MemoryDataStore());
         }
-        return new FirestoreDataStore(firebase.firestore);
+        // Counted for the usage monitor (in-process counters only; see common/usage-monitor.ts).
+        return usage.instrument(new FirestoreDataStore(firebase.firestore));
       },
     },
   ],

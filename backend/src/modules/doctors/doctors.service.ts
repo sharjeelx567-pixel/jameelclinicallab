@@ -6,6 +6,7 @@ import { AuthUser, toActor } from '../../common/types';
 import { C, DataStore, WhereClause } from '../../database/data-store';
 import { buildSearchTokens, diff, normalizeSearch, optionalText, paginationQuery, requiredText } from '../../utils';
 import { AuditService } from '../audit-logs/audit.service';
+import { usage } from '../../common/usage-monitor';
 
 export const DoctorDto = z.object({
   name: requiredText(100),
@@ -48,6 +49,7 @@ export class DoctorsService {
     const v = (await this.store.get<{ id: string; v: string }>(C.counters, 'doctorsVersion'))?.v ?? 'none';
     const key = `${q.status ?? 'all'}|${q.limit}`;
     const hit = this.listCache.get(key);
+    usage.cache('doctorList', hit?.version === v);
     if (hit?.version === v) return hit.value;
     const value = await this.queryList(q);
     this.listCache.set(key, { version: v, value });

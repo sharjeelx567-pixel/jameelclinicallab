@@ -90,7 +90,7 @@ export const ROUTE_LABELS: Record<string, string> = {
   dashboard: 'Dashboard', register: 'Register & bill', patients: 'Patients', new: 'New', orders: 'Orders', 'home-sampling': 'Home sampling', doctors: 'Doctors', samples: 'Samples',
   results: 'Result entry', verification: 'Verification', reports: 'Reports', analyzers: 'Analyzers', messages: 'Messages', tests: 'Test catalogue',
   billing: 'Billing', invoice: 'Invoice', panels: 'Insurance & panels', inventory: 'Inventory', analytics: 'Analytics', staff: 'Staff & roles',
-  'audit-logs': 'Audit logs', notifications: 'Notifications', settings: 'Settings', profile: 'My profile',
+  'audit-logs': 'Audit logs', notifications: 'Notifications', settings: 'Settings', profile: 'My profile', system: 'System', usage: 'Database usage',
 };
 
 export const ROLE_OPTIONS = [

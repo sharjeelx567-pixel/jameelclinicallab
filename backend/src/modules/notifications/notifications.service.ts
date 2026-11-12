@@ -4,6 +4,7 @@ import { forbidden, notFound } from '../../common/errors';
 import type { Permission } from '../../common/permissions';
 import { AuthUser, toActor } from '../../common/types';
 import { C, DataStore, TransactionContext } from '../../database/data-store';
+import { usage } from '../../common/usage-monitor';
 
 export interface NotifyInput {
   kind: NotificationKind;
@@ -44,7 +45,9 @@ export class NotificationsService {
   }
 
   private async latest(): Promise<NotificationDoc[]> {
-    if (this.recent && Date.now() - this.recent.at < NotificationsService.CACHE_MS) return this.recent.items;
+    const hit = !!this.recent && Date.now() - this.recent.at < NotificationsService.CACHE_MS;
+    usage.cache('notifications', hit);
+    if (hit) return this.recent!.items;
     const res = await this.store.query<NotificationDoc>(C.notifications, { orderBy: { field: 'createdAt', direction: 'desc' }, limit: NotificationsService.LIMIT });
     this.recent = { at: Date.now(), items: res.items };
     return res.items;

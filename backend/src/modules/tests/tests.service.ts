@@ -9,6 +9,7 @@ import { AuditService } from '../audit-logs/audit.service';
 import { flagValue, isCritical, selectRange } from './reference-range';
 import { containerFor, DEPARTMENTS, departmentFor, parametersFor, type RangeImportRowInput, type RateRowInput, turnaroundHours } from './rate-list';
 import { buildParameters, planPanels } from './standard-panels';
+import { usage } from '../../common/usage-monitor';
 
 const RangeDto = z
   .object({
@@ -100,6 +101,7 @@ export class TestsService {
   /** Every test (including inactive). One small read when nothing changed since the last call. */
   async allTests(knownVersion?: string): Promise<TestDoc[]> {
     const v = knownVersion ?? (await this.catalogVersion());
+    usage.cache('tests', this.cache?.version === v);
     if (this.cache?.version === v) return this.cache.tests;
     const tests = (await this.store.query<TestDoc>(C.tests, {})).items;
     this.cache = { version: v, tests };
@@ -129,6 +131,7 @@ export class TestsService {
   /** Categories, kept with the same version marker as the tests (1 small read when unchanged). */
   async categories(knownVersion?: string): Promise<TestCategoryDoc[]> {
     const v = knownVersion ?? (await this.catalogVersion());
+    usage.cache('testCategories', this.catCache?.version === v);
     if (this.catCache?.version === v) return this.catCache.items;
     const items = (await this.store.query<TestCategoryDoc>(C.testCategories, { orderBy: { field: 'sortOrder' } })).items;
     this.catCache = { version: v, items };

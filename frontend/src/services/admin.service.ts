@@ -121,6 +121,26 @@ export const notificationsService = {
   acknowledge: (id: string) => api.post<void>(`/notifications/${id}/acknowledge`),
 };
 
+export interface UsageReport {
+  quotaDay: string;
+  timeZone: string;
+  freeDailyLimits: { reads: number; writes: number };
+  notes: string[];
+  anomalies: Array<{ level: 'warning' | 'critical'; message: string }>;
+  today: {
+    date: string; requests: number; reads: number; writes: number; percentOfFreeReads: number; percentOfFreeWrites: number; serverProcesses: number;
+    routes: Array<{ route: string; workflow: string; requests: number; reads: number; writes: number; maxReads: number }>;
+    workflows: Array<{ name: string; requests: number; reads: number; writes: number; readsPerRequest: number }>;
+    caches: Array<{ name: string; hits: number; misses: number; hitRate: number | null }>;
+  };
+  days: Array<{ date: string; requests: number; reads: number; writes: number; percentOfFreeReads: number; monitoringWrites: number; serverProcesses: number }>;
+}
+
+/** Super Admin only: database usage counted by the backend (no patient data). */
+export const usageService = {
+  report: (days = 7) => api.get<UsageReport>('/system/usage', { days }),
+};
+
 export const auditService = {
   list: (q: { entity?: string; action?: string; actorUid?: string; from?: string; to?: string; cursor?: string }) => api.get<Paginated<AuditLog>>('/audit-logs', { limit: 50, ...q }),
 };

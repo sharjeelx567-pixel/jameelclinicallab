@@ -569,3 +569,22 @@ describe('order status summary (denormalised on the order)', () => {
     }
   });
 });
+
+describe('database usage monitor', () => {
+  it('reports usage by route and workflow to the Super Admin only, without ids or patient data', async () => {
+    expect((await api().get('/api/v1/system/usage').set(as(R))).status).toBe(403);
+    const res = await api().get('/api/v1/system/usage').query({ days: 7 }).set(as(ADMIN)).expect(200);
+    const rep = res.body.data;
+    expect(rep.days).toHaveLength(7);
+    expect(rep.today.reads).toBeGreaterThan(0);
+    const routes = rep.today.routes as Array<{ route: string; workflow: string; requests: number; reads: number }>;
+    expect(routes.some((r) => r.route === 'POST /api/v1/samples/:id/collect' && r.workflow === 'sample_processing')).toBe(true);
+    const names = (rep.today.workflows as Array<{ name: string }>).map((w) => w.name);
+    for (const w of ['patient_registration', 'order_creation', 'sample_processing', 'result_entry', 'result_approval', 'report_generation', 'payment']) expect(names).toContain(w);
+    // Route patterns only: no document ids, MR/order numbers or names.
+    const text = JSON.stringify(rep);
+    expect(text).not.toMatch(/JCL-\d|ORD-\d|RPT-\d|Test Patient/);
+    for (const r of routes) expect(r.route).not.toMatch(/\/[A-Za-z0-9]{20}(\/|$)/);
+    expect((rep.today.caches as Array<{ name: string }>).map((c) => c.name)).toEqual(expect.arrayContaining(['tests', 'settings']));
+  });
+});
