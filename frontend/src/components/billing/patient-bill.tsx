@@ -31,7 +31,7 @@ export function PatientBill({ inv }: { inv: InvoiceData }) {
         <div className="flex items-center gap-4">
           <LabLogoMark className="size-24" alt={inv.lab.name} />
           <div>
-            <p className="text-[8.5pt] italic text-slate-900">{inv.lab.tagline}</p>
+            <p className="text-[9pt] font-semibold italic text-slate-900">{inv.lab.tagline}</p>
             {inv.lab.address && <p className="text-[8.5pt] text-slate-900">{inv.lab.address}</p>}
             <p className="text-[8.5pt] text-slate-900">{[inv.lab.phone, inv.lab.email].filter(Boolean).join(' • ')}</p>
           </div>

@@ -3,7 +3,7 @@ import QRCode from 'qrcode';
 import type { ReportDoc, ResultFlag } from '../../common/entities';
 
 // Print-safe: solid black ink; "muted" is near-black (grey halftones print faint on laser printers).
-const COLORS = { ink: '#000000', muted: '#1f1f1f', line: '#000000', band: '#e2e8f0', soft: '#f1f5f9', green: '#15803d', high: '#b91c1c', low: '#1d4ed8' };
+const COLORS = { ink: '#000000', muted: '#1f1f1f', line: '#000000', band: '#e2e8f0', soft: '#f1f5f9', green: '#14532d', high: '#b91c1c', low: '#1d4ed8' };
 // Standard PDF fonts are WinAnsi-encoded: keep labels ASCII.
 const FLAG_LABEL: Partial<Record<ResultFlag, string>> = { high: 'H', low: 'L', critical_high: 'HH !', critical_low: 'LL !', abnormal: 'A' };
 const DEFAULT_PROVISO = 'This report relates only to the sample(s) received. Results should be interpreted by a qualified clinician in the clinical context.';

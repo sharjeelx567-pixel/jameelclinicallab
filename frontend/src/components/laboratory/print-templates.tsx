@@ -37,8 +37,8 @@ export function OrderReceipt({ order, payments, patient }: { order: Order; payme
         <div className="flex items-center gap-3">
           <LabLogoMark className="size-11" />
           <div>
-            <p className="text-[13pt] font-bold tracking-wide text-[#0d7f8e]">{BRAND.name}</p>
-            <p className="text-[9pt] italic text-slate-500">{BRAND.tagline}</p>
+            <p className="text-[13pt] font-bold tracking-wide text-[#0d7f8e] print:text-black">{BRAND.name}</p>
+            <p className="text-[9pt] font-semibold italic text-slate-500">{BRAND.tagline}</p>
           </div>
         </div>
         <div className="text-right">

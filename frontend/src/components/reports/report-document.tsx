@@ -59,7 +59,7 @@ export function ReportDocument({
         <LabLogoMark className="size-24 shrink-0" alt={s.lab.name} />
         <div className="min-w-0 flex-1 text-center">
           <h1 className="font-serif text-[22pt] font-bold uppercase leading-tight tracking-wide text-slate-900">{s.lab.name}</h1>
-          {s.lab.tagline && <p className="text-[11pt] font-semibold text-[#15803d]">{s.lab.tagline}</p>}
+          {s.lab.tagline && <p className="text-[11pt] font-bold text-[#15803d] print:text-black">{s.lab.tagline}</p>}
           {(s.lab.address || s.lab.phone) && <p className="text-[9.5pt] font-semibold">{[s.lab.address, s.lab.phone && `Ph# ${s.lab.phone}`].filter(Boolean).join('. ')}</p>}
         </div>
       </header>
