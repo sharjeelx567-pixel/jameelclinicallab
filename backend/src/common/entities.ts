@@ -200,6 +200,14 @@ export interface OrderItem {
   discountEligible: boolean;
   resultId: string;
   sampleId: string;
+  /**
+   * Status summary kept on the order (denormalised) so the order status can be derived without
+   * reading every sample and result. Written in the SAME transaction as every sample/result
+   * status change; rebuilt from the real documents by OrdersService.syncStatus. Missing on
+   * orders created before it existed: those fall back to reading the documents once.
+   */
+  sampleStatus?: SampleStatus;
+  resultStatus?: ResultStatus;
 }
 
 export interface OrderDoc extends Timestamps {

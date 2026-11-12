@@ -525,3 +525,47 @@ describe('administrative modules persist through the data store', () => {
     expect((await api().get('/api/v1/analytics/range').set(as(R))).status).toBe(403); // dashboard is role-filtered; range needs analytics.read
   });
 });
+
+describe('order status summary (denormalised on the order)', () => {
+  it('keeps the summary right through sample rejection, correction requests and old orders without it', async () => {
+    const { DataStore, C } = await import('../src/database/data-store');
+    const store = app.get(DataStore);
+    const p = await api().post('/api/v1/patients').set(as(R)).send({ name: 'Summary Check Patient', gender: 'male', ageYears: 40, mobile: '03215550077' }).expect(201);
+    const o = (await api().post('/api/v1/orders').set(as(R)).send({ patientId: p.body.data.id, testIds: ['test-fbs'] }).expect(201)).body.data;
+    const first = o.items[0];
+    // Reject the first tube → a replacement sample is queued; continue with the replacement.
+    await api().post(`/api/v1/samples/${first.sampleId}/collect`).set(as(R)).send({}).expect(201);
+    await api().post(`/api/v1/samples/${first.sampleId}/reject`).set(as(TECH)).send({ reason: 'Haemolysed' }).expect(201);
+    const after = (await api().get(`/api/v1/orders/${o.id}`).set(as(ADMIN)).expect(200)).body.data.order.items[0];
+    expect(after.sampleId).not.toBe(first.sampleId);
+    expect(after).toMatchObject({ sampleStatus: 'pending_collection', resultStatus: 'pending' });
+    // An order created before the summary existed: remove it, the next step reads the documents and writes it back.
+    const raw = (await store.get(C.orders, o.id)) as unknown as { items: Array<Record<string, unknown>> };
+    await store.update(C.orders, o.id, { items: raw.items.map(({ sampleStatus: _s, resultStatus: _r, ...i }) => i) });
+    for (const step of ['collect', 'receive', 'accept']) await api().post(`/api/v1/samples/${after.sampleId}/${step}`).set(as(TECH)).send({}).expect(201);
+    await api().put(`/api/v1/results/${first.resultId}/values`).set(as(TECH)).send({ values: [{ parameterId: 'glu', value: '91' }], submit: true }).expect(200);
+    await api().post(`/api/v1/results/${first.resultId}/reject`).set(as(PATH)).send({ reason: 'Recheck', kind: 'correction_requested' }).expect(201);
+    expect((await api().get(`/api/v1/orders/${o.id}`).set(as(ADMIN))).body.data.order.items[0].resultStatus).toBe('correction_requested');
+    await api().put(`/api/v1/results/${first.resultId}/values`).set(as(TECH)).send({ values: [{ parameterId: 'glu', value: '92' }], submit: true }).expect(200);
+    await api().post(`/api/v1/results/${first.resultId}/approve`).set(as(PATH)).send({}).expect(201);
+    const done = (await api().get(`/api/v1/orders/${o.id}`).set(as(ADMIN))).body.data;
+    expect(done.order.status).toBe('completed');
+    expect(done.order.items[0]).toMatchObject({ sampleStatus: 'completed', resultStatus: 'approved' });
+  });
+
+  it('matches the real sample and result documents for every order, and the derived order status', async () => {
+    const { deriveOrderStatus } = await import('../src/modules/orders/order-status');
+    const orders = (await api().get('/api/v1/orders').query({ limit: 100 }).set(as(ADMIN)).expect(200)).body.data.items as Array<{ id: string }>;
+    expect(orders.length).toBeGreaterThan(3);
+    for (const { id } of orders) {
+      const d = (await api().get(`/api/v1/orders/${id}`).set(as(ADMIN)).expect(200)).body.data;
+      const sampleStatus = new Map<string, string>(d.samples.map((s: { id: string; status: string }) => [s.id, s.status]));
+      const resultStatus = new Map<string, string>(d.results.map((r: { id: string; status: string }) => [r.id, r.status]));
+      for (const item of d.order.items) {
+        expect(item.sampleStatus).toBe(sampleStatus.get(item.sampleId));
+        expect(item.resultStatus).toBe(resultStatus.get(item.resultId));
+      }
+      expect(d.order.status).toBe(deriveOrderStatus(d.order, d.samples, d.results));
+    }
+  });
+});

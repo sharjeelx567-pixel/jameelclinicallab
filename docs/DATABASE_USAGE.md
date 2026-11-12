@@ -80,29 +80,104 @@ that check permissions first.
 
 ## Measured cost of common actions
 
-Measured by `backend/test/read-costs.e2e-spec.ts`, which counts operations exactly as Firestore
-bills them. Run it on the emulator with `npm run test:e2e:firestore`; it fails if a budget is
-exceeded. These are emulator figures; the real totals are in the Firebase console.
+All figures are document reads/writes **as Firestore bills them**, measured on the Firestore
+emulator by `backend/test/read-costs.e2e-spec.ts` (`npm run test:e2e:firestore`; add
+`READ_DETAIL=1` to print the per-collection breakdown). The test fails if a budget is exceeded.
+They are emulator figures — real daily totals are in Firebase console → Firestore → Usage.
+(The in-memory test store counts transaction reads twice, so its totals are higher.)
 
-| Action | Reads before (12 Nov) | Reads now | Writes |
-|---|---|---|---|
-| Any screen load (login check) | 1 | 0 (profile reused ≤ 60 s for reads) | 0 |
-| Any save/change (login check) | 1 | 1 (always re-read) | — |
-| Bell poll, nothing new | 2 | 1 | 0 |
-| Dashboard first open / again | 63 / 37 | 61 / **0** (reused 30 s per permission set) | 5 first time a month closes |
-| Register & bill page data (catalogue, letterhead, doctors) | 2 + up to 100 doctors | **2** (3 after a doctor changes) | 0 |
-| Test catalogue list | 2 | 1 | 0 |
-| Register patient | 3 | 3 | 3 |
-| Create order (2 tests) | 8 | 7 | 8 |
-| Collect + receive + accept 2 samples (6 clicks) | 48 | 42 | 13 |
-| Enter + submit 2 results | 22 | 20 | 10 |
-| Approve 2 results | 22 | 16 | 9 |
-| Generate report | 22 | **11** | 3 |
-| Take payment | 4 | 4 | 6 |
-| **Complete patient visit (2 tests)** | **129** | **103** | 52 |
+### One complete patient visit (2 tests: register → order → 2 tubes collected/received/accepted → 2 results entered → approved → report → payment)
 
-There are no duplicate requests: a browser check of every main screen shows that each one loads
-its own data once. Moving between screens loads only that screen's data.
+| Step | Start (12 Nov) | Phase 1 | **Phase 2 (now)** | Writes now |
+|---|---|---|---|---|
+| Register patient | 3 | 3 | **3** | 3 |
+| Create order (2 tests) | 8 | 7 | **6** | 8 |
+| Collect + receive + accept 2 samples (6 clicks) | 48 | 42 | **18** | 18 |
+| Enter + submit 2 results | 22 | 20 | **12** | 10 |
+| Approve 2 results | 22 | 16 | **8** | 10 |
+| Generate report | 22 | 11 | **10** | 3 |
+| Take payment | 4 | 4 | **4** | 6 |
+| **Whole visit** | **129** | **103** | **61** | 58 (was 52) |
+
+### Exact reads of the visit now (61)
+
+| Collection | Reads | Why it is needed |
+|---|---|---|
+| users | 14 | Fresh profile check on each of the 14 data-changing requests (security: never cached for writes) |
+| orders | 12 | The order inside each transaction (status, billing, items) |
+| samples | 12 | The tube being moved (6 clicks), checked fresh for each transition; the tube of each result |
+| results | 6 | The result being entered/approved; the order's results for the report |
+| counters | 6 | Sequential numbers, read and incremented atomically (MR, order, sample, report and receipt numbers) |
+| patients | 5 | Patient for duplicate check / order / result flagging (age, gender) / report |
+| catalogIndex | 2 | Catalogue version marker (order prices, report) |
+| tests | 2 | Parameters and ranges of each test when a result is entered (always fresh) |
+| reports, idempotencyKeys | 2 | Previous report versions; double-submit protection for the payment |
+
+Per sample click: **3 reads** (profile, sample, order). Per result entry: 6. Per approval: 4.
+
+### Other actions
+
+| Action | Start | Now |
+|---|---|---|
+| Any screen load (login check) | 1 | 0 (profile reused ≤ 60 s for reads) |
+| Bell poll, nothing new | 2 | 1 |
+| Dashboard first open / again within 30 s | 63 / 37 | 62 / 0 |
+| Register & bill page data | 2 + up to 100 doctors | 2 (3 after a doctor changes) |
+| Test catalogue list (865 tests) | 2 | 1 |
+| Verification queue refresh (empty) | 2 | 1 |
+
+No duplicate requests: a browser check of every main screen shows each screen loads its own
+data once; moving between screens loads only that screen's data.
+
+## Phase 2: order status summary (denormalisation)
+
+**Problem found:** 56 of the 103 reads of a visit were the order's *samples and results* being
+re-read on every sample click, result entry and approval — only to recompute the order status
+(`deriveOrderStatus`).
+
+**Change:** each order item now carries `sampleStatus` and `resultStatus` (see `OrderItem` in
+`common/entities.ts`). `OrdersService.statusBase` gives the statuses from the order itself (no
+reads) and `OrdersService.statusPatch` returns the updated summary + order status.
+
+**Update strategy (why it cannot drift):**
+- It is written **in the same Firestore transaction** as every status change: order creation,
+  sample collect/receive/accept/reject, result entry, analyzer import, correction request,
+  approval and amendment. Firestore retries a transaction if the order changed meanwhile.
+- A sample rejection (which moves tests to a replacement tube) sets the moved items to the new
+  tube's status in its transaction and then `syncStatus` rebuilds the whole summary from the
+  real documents.
+- Orders created before this change have no summary: the first status change reads the
+  samples/results once (old behaviour) and writes the summary. No migration needed.
+- An end-to-end test checks, for every order, that the summary equals the real sample and
+  result documents and that the order status equals the status derived from them, including
+  rejection, correction and an order whose summary was removed.
+
+**Not trusted for critical decisions:** a sample transition always reads the sample itself
+(fresh, in the transaction) to check the transition is allowed; result entry/approval read the
+result, its sample and test fresh; a sample is marked completed only after reading it fresh.
+The summary only replaces reading the *other* tubes and results of the order.
+
+**Other phase-2 changes:** order creation takes test prices from the catalogue copy (1 read
+instead of 1 per test); first-time approvals skip the result-version lookup (versions exist only
+after an amendment); report generation checks the catalogue version once.
+
+**Trade-off:** +1 write per sample click (the order summary), i.e. 58 instead of 52 writes per
+visit. Writes are far from their limit (20,000/day; a visit uses 58), reads were the problem.
+
+## Remaining reads and why they stay
+
+- **Profile check on writes (14 per visit):** removing it would let a user whose role was just
+  removed keep changing data for up to a minute.
+- **The document being changed** (sample, result, order) is always read inside its transaction —
+  required for correctness (status checks, concurrent edits).
+- **Number counters** (MR/order/sample/report/receipt) must be read and incremented atomically.
+- **Patient and test** documents for flagging use the current approved reference ranges and the
+  patient's age/gender.
+- **Dashboard first open (62)**: counts are aggregations (1 read each); recent patients/orders
+  and today's/current month's payments are read; past months come from `monthlyStats`.
+
+Further reductions would need architectural changes with real trade-offs (e.g. trusting cached
+profiles for writes, or moving counters to a sharded scheme) and are not recommended.
 
 ## Errors and their meaning
 

@@ -191,7 +191,7 @@ export class ResultsService {
       if (!sample || !SAMPLE_READY.has(sample.status))
         throw unprocessable('SAMPLE_NOT_READY', 'The sample must be accepted in the laboratory before results are entered');
       if (order.status === 'cancelled') throw unprocessable('ORDER_CANCELLED', 'Order is cancelled');
-      const statusInputs = await this.orders.readStatusInputs(tx, order.id); // before any write
+      const statusBase = await this.orders.statusBase(tx, order); // before any write
 
       const values = this.computeValues(test, patient, dto.values, result.values, 'manual');
       if (dto.submit) {
@@ -216,7 +216,7 @@ export class ResultsService {
       if (sample.status === 'accepted') {
         tx.update(C.samples, sample.id, { status: 'processing', timeline: [...sample.timeline, { status: 'processing', at: now, by }], updatedAt: now });
       }
-      const orderPatch = this.orders.statusPatch(order, statusInputs.samples.map((s) => (s.id === sample.id ? sampleNext : s)), statusInputs.results.map((r) => (r.id === id ? next : r)), by, now);
+      const orderPatch = this.orders.statusPatch(order, statusBase, { samples: { [sample.id]: sampleNext.status }, results: { [id]: next.status } }, by, now);
       if (orderPatch) tx.update(C.orders, order.id, orderPatch);
       if (dto.submit) {
         this.notifications.notifyInTx(tx, {
@@ -262,12 +262,15 @@ export class ResultsService {
       if (result.status !== 'submitted') throw unprocessable('NOT_SUBMITTED', 'Only submitted results can be approved');
       if (!settings.results.allowSelfVerification && result.enteredBy?.uid === actor.uid)
         throw forbidden('Results must be verified by a different person than the one who entered them');
-      const prevVersions = await tx.query<ResultVersionDoc>(C.resultVersions, { where: [{ field: 'resultId', op: '==', value: id }] });
-      // The order's samples and results (for the sample and order status, in this same transaction).
+      // Version history exists only for amended results (versions are written on approval).
+      const prevVersions = result.version > 1 ? await tx.query<ResultVersionDoc>(C.resultVersions, { where: [{ field: 'resultId', op: '==', value: id }] }) : [];
+      // Order + its status summary (in this same transaction) for the sample and order status.
       const order = await tx.get<OrderDoc>(C.orders, result.orderId);
-      const statusInputs = await this.orders.readStatusInputs(tx, result.orderId);
-      const sampleResults = statusInputs.results.filter((r) => r.sampleId === result.sampleId);
-      const sample = statusInputs.samples.find((s) => s.id === result.sampleId) ?? null;
+      const statusBase = order ? await this.orders.statusBase(tx, order) : null;
+      const otherOfSample = order ? order.items.filter((i) => i.sampleId === result.sampleId && i.resultId !== id) : [];
+      const allApproved = !!statusBase && otherOfSample.every((i) => statusBase.results.get(i.resultId) === 'approved');
+      // The sample document itself is read (fresh, in this transaction) only when it is to be completed.
+      const sample = allApproved && statusBase?.samples.get(result.sampleId) !== 'completed' ? await tx.get<SampleDoc>(C.samples, result.sampleId) : null;
 
       const now = this.store.now();
       const next: ResultDoc = { ...result, status: 'approved', approvedBy: by, approvedAt: now, approverComment: dto.comment, rejection: undefined, updatedAt: now };
@@ -286,19 +289,12 @@ export class ResultsService {
       tx.create(C.resultVersions, versionDoc.id, versionDoc);
       for (const v of prevVersions.filter((p) => !p.supersededAt)) tx.update(C.resultVersions, v.id, { supersededAt: now });
 
-      const allApproved = sampleResults.every((r) => r.id === id || r.status === 'approved');
       const sampleDone = !!sample && allApproved && sample.status !== 'completed';
       if (sample && sampleDone) {
         tx.update(C.samples, sample.id, { status: 'completed', timeline: [...sample.timeline, { status: 'completed', at: now, by }], updatedAt: now });
       }
-      if (order) {
-        const orderPatch = this.orders.statusPatch(
-          order,
-          statusInputs.samples.map((s) => (sampleDone && s.id === sample!.id ? { ...s, status: 'completed' as const } : s)),
-          statusInputs.results.map((r) => (r.id === id ? next : r)),
-          by,
-          now,
-        );
+      if (order && statusBase) {
+        const orderPatch = this.orders.statusPatch(order, statusBase, { samples: sampleDone ? { [result.sampleId]: 'completed' } : {}, results: { [id]: 'approved' } }, by, now);
         if (orderPatch) tx.update(C.orders, order.id, orderPatch);
       }
       if (next.hasCritical && settings.notifications.criticalResults) {
@@ -330,9 +326,13 @@ export class ResultsService {
       const result = await tx.get<ResultDoc>(C.results, id);
       if (!result) throw notFound('Result');
       if (result.status !== 'submitted') throw unprocessable('NOT_SUBMITTED', 'Only submitted results can be rejected');
+      const order = await tx.get<OrderDoc>(C.orders, result.orderId);
+      const statusBase = order ? await this.orders.statusBase(tx, order) : null;
       const now = this.store.now();
       const next: ResultDoc = { ...result, status: dto.kind, rejection: { reason: dto.reason, at: now, by, kind: dto.kind }, updatedAt: now };
       tx.set(C.results, id, next);
+      const orderPatch = order && statusBase ? this.orders.statusPatch(order, statusBase, { results: { [id]: dto.kind } }, by, now) : null;
+      if (order && orderPatch) tx.update(C.orders, order.id, orderPatch);
       this.notifications.notifyInTx(tx, {
         kind: 'result_rejected',
         severity: 'warning',
@@ -344,7 +344,6 @@ export class ResultsService {
       this.audit.recordInTx(tx, { action: `result.${dto.kind}`, entity: 'result', entityId: id, actor: by, note: dto.reason });
       return next;
     });
-    await this.orders.syncStatus(rejected.orderId, by);
     return rejected;
   }
 
@@ -360,6 +359,8 @@ export class ResultsService {
       if (!result) throw notFound('Result');
       if (result.status !== 'approved') throw unprocessable('NOT_APPROVED', 'Only approved results can be amended');
       const reports = await tx.query<ReportDoc>(C.reports, { where: [{ field: 'orderId', op: '==', value: result.orderId }] });
+      const order = await tx.get<OrderDoc>(C.orders, result.orderId);
+      const statusBase = order ? await this.orders.statusBase(tx, order) : null;
       const now = this.store.now();
       const next: ResultDoc = {
         ...result,
@@ -371,12 +372,13 @@ export class ResultsService {
         updatedAt: now,
       };
       tx.set(C.results, id, next);
+      const orderPatch = order && statusBase ? this.orders.statusPatch(order, statusBase, { results: { [id]: 'draft' } }, by, now) : null;
+      if (order && orderPatch) tx.update(C.orders, order.id, orderPatch);
       for (const r of reports.filter((r) => r.status === 'final' || r.status === 'interim' || r.status === 'amended'))
         tx.update(C.reports, r.id, { status: 'superseded' });
       this.audit.recordInTx(tx, { action: 'result.amend_open', entity: 'result', entityId: id, actor: by, note: dto.reason, changes: { fromVersion: result.version, toVersion: next.version } });
       return next;
     });
-    await this.orders.syncStatus(amended.orderId, by);
     return amended;
   }
 
@@ -386,9 +388,10 @@ export class ResultsService {
    */
   async applyAnalyzerValues(resultId: string, values: AnalyzerValueInput[], messageId: string, by: AuditActor): Promise<ResultDoc> {
     const saved = await this.store.transaction(async (tx) => {
-      const { result, test, patient, sample } = await this.loadContext(tx, resultId);
+      const { result, test, patient, sample, order } = await this.loadContext(tx, resultId);
       if (!ENTERABLE.has(result.status)) throw unprocessable('RESULT_LOCKED', `Result is ${result.status}; analyzer values were not applied`);
       if (!sample || !SAMPLE_READY.has(sample.status)) throw unprocessable('SAMPLE_NOT_READY', 'Sample has not been accepted in the laboratory');
+      const statusBase = await this.orders.statusBase(tx, order); // before any write
       const computed = this.computeValues(test, patient, values, result.values, 'analyzer', messageId);
       // Keep any manual values for parameters the analyzer didn't send.
       const merged = [...computed, ...result.values.filter((v) => !computed.some((c) => c.parameterId === v.parameterId))];
@@ -404,10 +407,11 @@ export class ResultsService {
       tx.set(C.results, resultId, next);
       if (sample.status === 'accepted')
         tx.update(C.samples, sample.id, { status: 'processing', timeline: [...sample.timeline, { status: 'processing', at: now, by }], updatedAt: now });
+      const orderPatch = this.orders.statusPatch(order, statusBase, { samples: sample.status === 'accepted' ? { [sample.id]: 'processing' } : {}, results: { [resultId]: 'draft' } }, by, now);
+      if (orderPatch) tx.update(C.orders, order.id, orderPatch);
       this.audit.recordInTx(tx, { action: 'result.analyzer_import', entity: 'result', entityId: resultId, actor: by, changes: { messageId, parameters: computed.length } });
       return next;
     });
-    await this.orders.syncStatus(saved.orderId, by);
     return saved;
   }
 }

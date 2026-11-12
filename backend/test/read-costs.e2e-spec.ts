@@ -24,12 +24,17 @@ const meter = { reads: 0, writes: 0 };
 const as = (uid: string) => ({ Authorization: `Bearer dev:${uid}` });
 const [R, TECH, PATH, ADMIN, ACC] = ['dev-receptionist', 'dev-lab_technician', 'dev-pathologist', 'dev-super_admin', 'dev-accountant'];
 const api = () => request(app.getHttpServer());
-const results: Array<{ action: string; reads: number; writes: number }> = [];
+const results: Array<{ action: string; reads: number; writes: number; detail: string }> = [];
+/** Reads per collection (e.g. "users 2, orders (tx) 3"), to see exactly what each action reads. */
+const byColl = new Map<string, number>();
+const tally = (c: unknown, n: number, tx = false) => { const k = `${String(c)}${tx ? ' (tx)' : ''}`; byColl.set(k, (byColl.get(k) ?? 0) + n); meter.reads += n; };
 
 async function cost(action: string, fn: () => Promise<unknown>) {
   const before = { ...meter };
+  const snap = new Map(byColl);
   await fn();
-  const c = { action, reads: meter.reads - before.reads, writes: meter.writes - before.writes };
+  const detail = [...byColl].map(([k, v]) => [k, v - (snap.get(k) ?? 0)] as const).filter(([, v]) => v > 0).map(([k, v]) => `${k} ${v}`).join(', ');
+  const c = { action, reads: meter.reads - before.reads, writes: meter.writes - before.writes, detail };
   results.push(c);
   return c;
 }
@@ -40,20 +45,20 @@ function instrument(store: DataStore) {
   const orig = Object.fromEntries(['get', 'query', 'count', 'sum', 'create', 'set', 'update', 'delete', 'transaction'].map((k) => [k, s[k].bind(store)]));
   const entries = (c: string, where?: WhereClause[]) => orig.count(c, where) as Promise<number>; // not billed: helper only
   const queryReads = (n: number, o: QueryOptions = {}, more = false) => Math.max(1, n + (more ? 1 : 0)) + (o.cursor ? 1 : 0);
-  s.get = async (...a) => { meter.reads++; return orig.get(...a); };
+  s.get = async (...a) => { tally(a[0], 1); return orig.get(...a); };
   s.query = async (c, o) => {
     const r = (await orig.query(c, o)) as { items: unknown[]; nextCursor: string | null };
-    meter.reads += queryReads(r.items.length, o as QueryOptions, !!r.nextCursor);
+    tally(c, queryReads(r.items.length, o as QueryOptions, !!r.nextCursor));
     return r;
   };
-  s.count = async (c, w) => { const n = (await orig.count(c, w)) as number; meter.reads += Math.max(1, Math.ceil(n / 1000)); return n; };
-  s.sum = async (c, f, w) => { meter.reads += Math.max(1, Math.ceil((await entries(c as string, w as WhereClause[])) / 1000)); return orig.sum(c, f, w); };
+  s.count = async (c, w) => { const n = (await orig.count(c, w)) as number; tally(`${String(c)} count`, Math.max(1, Math.ceil(n / 1000))); return n; };
+  s.sum = async (c, f, w) => { tally(`${String(c)} sum`, Math.max(1, Math.ceil((await entries(c as string, w as WhereClause[])) / 1000))); return orig.sum(c, f, w); };
   for (const k of ['create', 'set', 'update', 'delete']) s[k] = async (...a) => { meter.writes++; return orig[k](...a); };
   s.transaction = async (fn) =>
     orig.transaction(async (tx: TransactionContext) =>
       (fn as (t: TransactionContext) => Promise<unknown>)({
-        get: async (c, id) => { meter.reads++; return tx.get(c, id); },
-        query: async (c, o) => { const r = await tx.query(c, o); meter.reads += Math.max(1, r.length); return r; },
+        get: async (c, id) => { tally(c, 1, true); return tx.get(c, id); },
+        query: async (c, o) => { const r = await tx.query(c, o); tally(c, Math.max(1, r.length), true); return r; },
         create: (c, id, d) => { meter.writes++; tx.create(c, id, d); },
         set: (c, id, d) => { meter.writes++; tx.set(c, id, d); },
         update: (c, id, d) => { meter.writes++; tx.update(c, id, d); },
@@ -71,7 +76,8 @@ beforeAll(async () => {
 
 afterAll(async () => {
   // eslint-disable-next-line no-console
-  console.log(`Firestore cost per action (${USE_FIRESTORE ? 'Firestore emulator' : 'memory store'}):\n` + results.map((r) => `${r.action.padEnd(58)} reads ${String(r.reads).padStart(4)}   writes ${String(r.writes).padStart(3)}`).join('\n'));
+  console.log(`Firestore cost per action (${USE_FIRESTORE ? 'Firestore emulator' : 'memory store'}):\n` + results.map((r) => `${r.action.padEnd(58)} reads ${String(r.reads).padStart(4)}   writes ${String(r.writes).padStart(3)}${r.detail && (r.action.startsWith('  ·') || process.env.READ_DETAIL) ? `
+            -> ${r.detail}` : ''}`).join('\n'));
   await app?.close();
 });
 
@@ -163,9 +169,11 @@ describe('read and write cost of common actions', () => {
     expect(queue.reads).toBeLessThanOrEqual(2);
     expect(h2.writes).toBe(0);
     expect(h1.writes).toBe(1);
-    expect(visit.reads).toBeLessThan(400);
+    // Firestore emulator: 129 before phase 1, 103 after, 61 after the order status summary. The in-memory
+    // store's transaction reads go through its own get/query and are therefore counted twice here.
+    expect(visit.reads).toBeLessThanOrEqual(USE_FIRESTORE ? 70 : 120);
     expect(reg2.reads).toBeLessThanOrEqual(3);
     expect(reg3.reads).toBeLessThan(reg1.reads + 2);
-    expect(report2.reads).toBeLessThan(400);
+    expect(report2.reads).toBeLessThanOrEqual(USE_FIRESTORE ? 70 : 120);
   });
 });

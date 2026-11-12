@@ -45,7 +45,7 @@ export class ReportsService {
   async generate(orderId: string, actor: AuthUser): Promise<ReportDoc> {
     // Test categories and parameter order come from the catalogue copy kept in memory
     // (1 small read when unchanged) instead of reading every category and each test.
-    const [settings, allTests, categories] = await Promise.all([this.settings.get(), this.testsCatalog.allTests(), this.testsCatalog.categories()]);
+    const [settings, { tests: allTests, categories }] = await Promise.all([this.settings.get(), this.testsCatalog.testsAndCategories()]);
     const catName = new Map(categories.map((c) => [c.id, c.name]));
     const testById = new Map(allTests.map((t) => [t.id, t]));
 

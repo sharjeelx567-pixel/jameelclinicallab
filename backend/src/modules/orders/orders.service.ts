@@ -10,7 +10,9 @@ import type {
   PaymentDoc,
   ReportDoc,
   ResultDoc,
+  ResultStatus,
   SampleDoc,
+  SampleStatus,
   TestDoc,
 } from '../../common/entities';
 import { badRequest, conflict, forbidden, notFound, unprocessable } from '../../common/errors';
@@ -33,7 +35,17 @@ import {
 } from '../../utils';
 import { AuditService } from '../audit-logs/audit.service';
 import { SettingsService } from '../settings/settings.service';
+import { TestsService } from '../tests/tests.service';
 import { deriveOrderStatus } from './order-status';
+
+export interface StatusBase {
+  samples: Map<string, SampleStatus>;
+  results: Map<string, ResultStatus>;
+}
+export interface StatusChanges {
+  samples?: Record<string, SampleStatus>;
+  results?: Record<string, ResultStatus>;
+}
 
 export const PaymentInput = z.object({
   amount: money.refine((n) => n > 0, 'Amount must be greater than zero'),
@@ -97,6 +109,7 @@ export class OrdersService {
     private readonly store: DataStore,
     private readonly audit: AuditService,
     private readonly settings: SettingsService,
+    private readonly testsCatalog: TestsService,
   ) {}
 
   async get(id: string): Promise<OrderDoc> {
@@ -124,7 +137,9 @@ export class OrdersService {
   private async loadTests(ids: string[]): Promise<TestDoc[]> {
     const unique = [...new Set(ids)];
     if (unique.length !== ids.length) throw badRequest('DUPLICATE_TEST', 'A test was selected more than once');
-    const tests = await Promise.all(unique.map((id) => this.store.get<TestDoc>(C.tests, id)));
+    // From the catalogue copy (checked against its version marker: 1 read) instead of one read per test.
+    const byId = new Map((await this.testsCatalog.allTests()).map((t) => [t.id, t]));
+    const tests = unique.map((id) => byId.get(id) ?? null);
     const missing = unique.filter((_, i) => !tests[i] || !tests[i]!.active);
     if (missing.length) throw badRequest('TEST_UNAVAILABLE', 'One or more selected tests are not available', missing);
     return tests as TestDoc[];
@@ -257,6 +272,9 @@ export class OrdersService {
         updatedAt: now,
       }));
 
+      // Status summary on each item (see OrderItem.sampleStatus).
+      const sampleStatusById = new Map(samples.map((x) => [x.id, x.status]));
+      doc.items = doc.items.map((i) => ({ ...i, sampleStatus: sampleStatusById.get(i.sampleId), resultStatus: 'pending' as const }));
       const status = deriveOrderStatus(doc, samples, results);
       if (status !== doc.status) {
         doc.status = status;
@@ -385,23 +403,43 @@ export class OrdersService {
    * own transaction (call after the triggering write has committed).
    */
   /**
-   * For callers already inside a transaction that has read the order: read what the order
-   * status depends on (call BEFORE the transaction's writes — a Firestore rule), then apply
-   * `statusPatch` with the documents as they will be after the transaction. Saves the
-   * separate syncStatus transaction (which re-reads the order, its samples and results).
+   * Current sample/result statuses of an order, for a transaction that has read the order.
+   * From the order's own status summary (no reads); for older orders without it, the samples
+   * and results are read once (statusPatch then writes the summary). Call BEFORE the
+   * transaction's writes (a Firestore rule).
    */
-  async readStatusInputs(tx: TransactionContext, orderId: string) {
-    const byOrder = [{ field: 'orderId', op: '==' as const, value: orderId }];
+  async statusBase(tx: TransactionContext, order: OrderDoc): Promise<StatusBase> {
+    if (order.items.every((i) => i.sampleStatus && i.resultStatus))
+      return { samples: new Map(order.items.map((i) => [i.sampleId, i.sampleStatus!])), results: new Map(order.items.map((i) => [i.resultId, i.resultStatus!])) };
+    const byOrder = [{ field: 'orderId', op: '==' as const, value: order.id }];
     const [samples, results] = await Promise.all([tx.query<SampleDoc>(C.samples, { where: byOrder }), tx.query<ResultDoc>(C.results, { where: byOrder })]);
-    return { samples, results };
+    return { samples: new Map(samples.map((x) => [x.id, x.status])), results: new Map(results.map((r) => [r.id, r.status])) };
   }
 
-  statusPatch(order: OrderDoc, samples: SampleDoc[], results: ResultDoc[], by: AuditActor, now: string): Partial<OrderDoc> | null {
+  /**
+   * The order update for this transaction's sample/result status changes: the per-item status
+   * summary and, if it changes, the order status. null when nothing changes.
+   */
+  statusPatch(order: OrderDoc, base: StatusBase, changes: StatusChanges, by: AuditActor, now: string): Partial<OrderDoc> | null {
+    const sampleStatus = (id: string) => changes.samples?.[id] ?? base.samples.get(id);
+    const resultStatus = (id: string) => changes.results?.[id] ?? base.results.get(id);
+    const items = order.items.map((i) => ({ ...i, sampleStatus: sampleStatus(i.sampleId) ?? i.sampleStatus, resultStatus: resultStatus(i.resultId) ?? i.resultStatus }));
+    const samples = [...new Set(items.map((i) => i.sampleId))].map((id) => ({ status: sampleStatus(id) })).filter((x): x is { status: SampleStatus } => !!x.status);
+    const results = items.map((i) => ({ status: i.resultStatus })).filter((x): x is { status: ResultStatus } => !!x.status);
     const status = deriveOrderStatus(order, samples, results);
-    if (status === order.status) return null;
-    return { status, statusHistory: [...order.statusHistory, { status, at: now, by }], updatedAt: now };
+    const itemsChanged = items.some((i, k) => i.sampleStatus !== order.items[k].sampleStatus || i.resultStatus !== order.items[k].resultStatus);
+    if (status === order.status && !itemsChanged) return null;
+    return {
+      ...(itemsChanged ? { items } : {}),
+      ...(status !== order.status ? { status, statusHistory: [...order.statusHistory, { status, at: now, by }] } : {}),
+      updatedAt: now,
+    };
   }
 
+  /**
+   * Rebuilds the order status AND its status summary from the real sample and result
+   * documents (used after a sample rejection, which also moves tests to a new sample).
+   */
   async syncStatus(orderId: string, by: AuditActor): Promise<void> {
     await this.store.transaction(async (t: TransactionContext) => {
       const order = await t.get<OrderDoc>(C.orders, orderId);
@@ -409,10 +447,9 @@ export class OrdersService {
       const byOrder = [{ field: 'orderId', op: '==' as const, value: orderId }];
       const samples = await t.query<SampleDoc>(C.samples, { where: byOrder });
       const results = await t.query<ResultDoc>(C.results, { where: byOrder });
-      const status = deriveOrderStatus(order, samples, results);
-      if (status === order.status) return;
-      const now = this.store.now();
-      t.update(C.orders, orderId, { status, statusHistory: [...order.statusHistory, { status, at: now, by }], updatedAt: now });
+      const base: StatusBase = { samples: new Map(samples.map((x) => [x.id, x.status])), results: new Map(results.map((r) => [r.id, r.status])) };
+      const patch = this.statusPatch(order, base, {}, by, this.store.now());
+      if (patch) t.update(C.orders, orderId, patch);
     });
   }
 }

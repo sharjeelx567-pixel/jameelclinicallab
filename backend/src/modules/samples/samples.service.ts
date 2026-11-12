@@ -82,7 +82,7 @@ export class SamplesService {
         throw unprocessable('RESULTS_EXIST', 'Results for this sample are already submitted or approved');
       const seq = action === 'reject' ? await reserveSequences(tx, { sample: 1 }) : null;
       // Order status is updated in this same transaction (reads must come before writes).
-      const statusInputs = action === 'reject' ? null : await this.orders.readStatusInputs(tx, order.id);
+      const statusBase = action === 'reject' ? null : await this.orders.statusBase(tx, order);
 
       const now = this.store.now();
       const next: SampleDoc = {
@@ -119,7 +119,7 @@ export class SamplesService {
         };
         tx.create(C.samples, replacement.id, replacement);
         tx.update(C.orders, order.id, {
-          items: order.items.map((i) => (i.sampleId === id ? { ...i, sampleId: replacement!.id } : i)),
+          items: order.items.map((i) => (i.sampleId === id ? { ...i, sampleId: replacement!.id, sampleStatus: 'pending_collection' as const, resultStatus: 'pending' as const } : i)),
           updatedAt: now,
         });
         for (const r of results) tx.update(C.results, r.id, { sampleId: replacement.id, values: [], status: 'pending', updatedAt: now });
@@ -140,8 +140,8 @@ export class SamplesService {
         note: dto.reason ?? dto.note,
         changes: { status: { from: sample.status, to: rule.to }, ...(replacement && { replacementSample: replacement.sampleNumber }) },
       });
-      if (statusInputs) {
-        const patch = this.orders.statusPatch(order, statusInputs.samples.map((s) => (s.id === id ? next : s)), statusInputs.results, by, now);
+      if (statusBase) {
+        const patch = this.orders.statusPatch(order, statusBase, { samples: { [id]: next.status } }, by, now);
         if (patch) tx.update(C.orders, order.id, patch);
       }
       return { sample: next, replacement };

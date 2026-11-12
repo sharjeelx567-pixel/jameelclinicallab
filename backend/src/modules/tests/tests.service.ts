@@ -86,13 +86,20 @@ export class TestsService {
 
   private cache?: { version: string; tests: TestDoc[] };
 
+  /** Tests and categories with ONE version check. */
+  async testsAndCategories(): Promise<{ tests: TestDoc[]; categories: TestCategoryDoc[] }> {
+    const v = await this.catalogVersion();
+    const [tests, categories] = await Promise.all([this.allTests(v), this.categories(v)]);
+    return { tests, categories };
+  }
+
   private async catalogVersion(): Promise<string> {
     return (await this.store.get<{ id: string; v: string }>(C.catalogIndex, 'version'))?.v ?? 'none';
   }
 
   /** Every test (including inactive). One small read when nothing changed since the last call. */
-  async allTests(): Promise<TestDoc[]> {
-    const v = await this.catalogVersion();
+  async allTests(knownVersion?: string): Promise<TestDoc[]> {
+    const v = knownVersion ?? (await this.catalogVersion());
     if (this.cache?.version === v) return this.cache.tests;
     const tests = (await this.store.query<TestDoc>(C.tests, {})).items;
     this.cache = { version: v, tests };
@@ -120,8 +127,8 @@ export class TestsService {
   private catCache?: { version: string; items: TestCategoryDoc[] };
 
   /** Categories, kept with the same version marker as the tests (1 small read when unchanged). */
-  async categories(): Promise<TestCategoryDoc[]> {
-    const v = await this.catalogVersion();
+  async categories(knownVersion?: string): Promise<TestCategoryDoc[]> {
+    const v = knownVersion ?? (await this.catalogVersion());
     if (this.catCache?.version === v) return this.catCache.items;
     const items = (await this.store.query<TestCategoryDoc>(C.testCategories, { orderBy: { field: 'sortOrder' } })).items;
     this.catCache = { version: v, items };
