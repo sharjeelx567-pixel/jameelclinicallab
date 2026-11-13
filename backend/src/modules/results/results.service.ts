@@ -19,7 +19,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { OrdersService } from '../orders/orders.service';
 import { SettingsService } from '../settings/settings.service';
 import { flagValue, isCritical, selectRange } from '../tests/reference-range';
-import { parameterSections } from '../tests/sections';
+import { orderedParameters, parameterSections } from '../tests/sections';
 
 export const EnterValuesDto = z.object({
   values: z.array(z.object({ parameterId: z.string().max(40), value: z.string().trim().max(200) })).max(80),
@@ -100,8 +100,7 @@ export class ResultsService {
     ]);
     if (!test || !order || !patient) throw notFound('Result context');
     const sections = parameterSections(test.parameters);
-    const parameters = [...test.parameters]
-      .sort((a, b) => a.sortOrder - b.sortOrder)
+    const parameters = orderedParameters(test.parameters)
       .map((p) => {
         const range = selectRange(p, patient.gender, patient.ageYears);
         return {

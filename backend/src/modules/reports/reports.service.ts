@@ -12,7 +12,7 @@ import { transformUrl } from '../media/media-provider';
 import { SettingsService } from '../settings/settings.service';
 import { StorageService } from '../settings/storage.service';
 import { formatRange } from '../tests/reference-range';
-import { parameterSections } from '../tests/sections';
+import { orderedParameters, parameterSections } from '../tests/sections';
 import { TestsService } from '../tests/tests.service';
 import { renderReportPdf } from './report-pdf';
 
@@ -103,7 +103,7 @@ export class ReportsService {
           const category = t ? (catName.get(t.categoryId) ?? '') : '';
           if (!r || r.status !== 'approved')
             return { resultId: item.resultId, testName: item.testName, testCode: item.testCode, category, status: 'pending' as const, values: [] };
-          const order2 = new Map(t?.parameters.map((p) => [p.id, p.sortOrder]) ?? []);
+          const order2 = new Map(orderedParameters(t?.parameters ?? []).map((p, k) => [p.id, k]));
           const sectionOf = parameterSections(t?.parameters ?? []);
           return {
             resultId: r.id,

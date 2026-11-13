@@ -26,3 +26,23 @@ export function parameterSections(parameters: Pick<TestParameter, 'id' | 'name' 
   if (screening) out.set(screening.id, 'Screening Report');
   return out;
 }
+
+const CROSS_MATCH = /cross\s*-?\s*match/i;
+
+/**
+ * Parameters in printing order. Normally the saved order; for a cross match laid out
+ * automatically (no headings typed), a "Cross Matching" row saved after the screening
+ * tests is shown under DONOR, where it belongs, as on standard blood-bank reports.
+ */
+export function orderedParameters<T extends Pick<TestParameter, 'id' | 'name' | 'section' | 'sortOrder'>>(parameters: T[]): T[] {
+  const sorted = [...parameters].sort((a, b) => a.sortOrder - b.sortOrder);
+  if (parameters.some((p) => p.section?.trim())) return sorted;
+  const sections = parameterSections(parameters);
+  const screeningAt = sorted.findIndex((p) => sections.get(p.id) === 'Screening Report');
+  if (screeningAt < 0) return sorted;
+  const late = sorted.filter((p, i) => i > screeningAt && CROSS_MATCH.test(p.name));
+  if (!late.length) return sorted;
+  const rest = sorted.filter((p) => !late.includes(p));
+  const at = rest.findIndex((p) => sections.get(p.id) === 'Screening Report');
+  return [...rest.slice(0, at), ...late, ...rest.slice(at)];
+}
