@@ -174,7 +174,7 @@ export async function renderReportPdf(
       const y = doc.y;
       const flag = FLAG_LABEL[v.flag];
       doc.fillColor(COLORS.ink).font('Helvetica').fontSize(9).text(name, colX[0], y, { width: colW[0] });
-      doc.fillColor(flag ? (v.flag.includes('low') ? COLORS.low : COLORS.high) : COLORS.ink).font('Helvetica-Bold').fontSize(9.3)
+      doc.fillColor(COLORS.ink).font('Helvetica-Bold').fontSize(9.3)
         .text(flag ? `${v.value}  ${flag}` : v.value, colX[1], y, { width: colW[1] });
       doc.fillColor(COLORS.ink).font('Helvetica').fontSize(9).text(v.unit ?? '', colX[2], y, { width: colW[2] });
       doc.fillColor(v.range ? COLORS.ink : COLORS.muted).text(v.range || '-', colX[3], y, { width: colW[3] });

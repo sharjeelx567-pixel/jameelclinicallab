@@ -110,14 +110,13 @@ export function ReportDocument({
               <>
                 {t.values.map((v, j) => {
                   const abnormal = v.flag !== 'normal' && v.flag !== 'no_range';
-                  const low = v.flag.includes('low');
                   const heading = v.section && v.section !== t.values[j - 1]?.section ? v.section : null;
                   return (
                     <Fragment key={`${v.parameterName}-${j}`}>
                     {heading && <div className="mx-3 mt-1.5 w-1/2 border-l-4 border-black bg-slate-300 px-1.5 py-[1px] text-[9.5pt] font-bold uppercase italic text-black">{heading}</div>}
                     <div className="grid grid-cols-[40%_18%_17%_25%] border-b border-slate-400 px-3 py-[3px] text-[10pt] text-black last:border-b-0">
                       <span className="text-[9.5pt]">{niceName(v.parameterName === 'Result' ? t.testName : v.parameterName)}</span>
-                      <span className={cn('tabular font-semibold', abnormal && 'font-bold', abnormal && (low ? 'text-blue-700' : 'text-red-700'))}>
+                      <span className={cn('tabular font-semibold', abnormal && 'font-extrabold')}>
                         {v.value}
                         {abnormal && <span className="ml-1.5 text-[8.5pt]">{FLAG_META[v.flag]?.short}</span>}
                       </span>
