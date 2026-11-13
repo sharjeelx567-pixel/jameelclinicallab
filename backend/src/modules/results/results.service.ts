@@ -111,6 +111,7 @@ export class ResultsService {
           decimals: p.decimals,
           defaultValue: p.defaultValue,
           optional: p.optional ?? false,
+          section: p.section,
           approvedRange: range ? { low: range.low, high: range.high, text: range.text, criticalLow: range.criticalLow, criticalHigh: range.criticalHigh } : null,
           hasDraftRanges: p.ranges.some((r) => r.status === 'draft'),
         };

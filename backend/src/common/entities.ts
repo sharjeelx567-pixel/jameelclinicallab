@@ -143,6 +143,8 @@ export interface TestParameter {
   defaultValue?: string;
   /** May be left empty when submitting; empty rows are not printed. */
   optional?: boolean;
+  /** Heading printed above this row when it differs from the previous row's (e.g. "Patient", "Donor"). */
+  section?: string;
   ranges: ReferenceRange[];
   sortOrder: number;
 }
@@ -364,7 +366,7 @@ export interface ReportSnapshot {
     category: string;
     status: 'approved' | 'pending';
     resultVersion?: number;
-    values: Array<{ parameterName: string; value: string; unit?: string; range?: string; flag: ResultFlag }>;
+    values: Array<{ parameterName: string; value: string; unit?: string; range?: string; flag: ResultFlag; section?: string }>;
     comment?: string;
     approvedBy?: string;
     approvedAt?: string;

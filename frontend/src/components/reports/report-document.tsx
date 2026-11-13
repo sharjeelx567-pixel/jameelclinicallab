@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import { Barcode, QrCode } from '@/components/shared/codes';
 import { LabLogoMark } from '@/components/shared/lab-logo';
 import { FLAG_META } from '@/constants';
@@ -111,8 +111,11 @@ export function ReportDocument({
                 {t.values.map((v, j) => {
                   const abnormal = v.flag !== 'normal' && v.flag !== 'no_range';
                   const low = v.flag.includes('low');
+                  const heading = v.section && v.section !== t.values[j - 1]?.section ? v.section : null;
                   return (
-                    <div key={`${v.parameterName}-${j}`} className="grid grid-cols-[40%_18%_17%_25%] border-b border-slate-200 px-3 py-[3px] text-[10pt] last:border-b-0">
+                    <Fragment key={`${v.parameterName}-${j}`}>
+                    {heading && <div className="mx-3 mt-1 w-1/2 bg-slate-200 px-1 py-[1px] text-[9pt] font-bold uppercase italic">{heading}</div>}
+                    <div className="grid grid-cols-[40%_18%_17%_25%] border-b border-slate-200 px-3 py-[3px] text-[10pt] last:border-b-0">
                       <span className="text-[9.5pt]">{niceName(v.parameterName === 'Result' ? t.testName : v.parameterName)}</span>
                       <span className={cn('tabular font-semibold', abnormal && 'font-bold', abnormal && (low ? 'text-blue-700' : 'text-red-700'))}>
                         {v.value}
@@ -121,6 +124,7 @@ export function ReportDocument({
                       <span>{v.unit}</span>
                       <span className="whitespace-pre-line">{v.range || <span className="italic text-slate-800">—</span>}</span>
                     </div>
+                    </Fragment>
                   );
                 })}
                 {t.comment && <p className="px-3 pt-0.5 text-[9pt] italic text-slate-900">Comment: {t.comment}</p>}

@@ -39,6 +39,7 @@ const ParameterDto = z.object({
   decimals: z.number().int().min(0).max(6).optional(),
   defaultValue: optionalText(60),
   optional: z.boolean().optional(),
+  section: optionalText(60),
   ranges: z.array(RangeDto).max(30).default([]),
   sortOrder: z.number().int().min(0).max(1000).default(0),
 });

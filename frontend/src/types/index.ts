@@ -130,6 +130,8 @@ export interface TestParameter {
   defaultValue?: string;
   /** May be left empty when submitting. */
   optional?: boolean;
+  /** Heading printed above this row, e.g. "Patient", "Donor". */
+  section?: string;
   ranges: ReferenceRange[];
   sortOrder: number;
 }
@@ -282,6 +284,7 @@ export interface ResultWorkspace {
     decimals?: number;
     defaultValue?: string;
     optional?: boolean;
+    section?: string;
     approvedRange: { low?: number; high?: number; text?: string; criticalLow?: number; criticalHigh?: number } | null;
     hasDraftRanges: boolean;
   }>;
@@ -309,7 +312,7 @@ export interface ReportSnapshot {
     category: string;
     status: 'approved' | 'pending';
     resultVersion?: number;
-    values: Array<{ parameterName: string; value: string; unit?: string; range?: string; flag: ResultFlag }>;
+    values: Array<{ parameterName: string; value: string; unit?: string; range?: string; flag: ResultFlag; section?: string }>;
     comment?: string;
     approvedBy?: string;
     approvedAt?: string;

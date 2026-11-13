@@ -131,6 +131,7 @@ export default function ResultEntryPage() {
               return (
                 <div key={p.id} className={cn('grid grid-cols-1 gap-2 rounded-lg border border-transparent p-2 md:grid-cols-[1.4fr_1fr_1fr_auto] md:items-center md:gap-3', critical && 'border-destructive/40 bg-destructive-soft/50')}>
                   <label htmlFor={inputId} className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-sm font-medium">
+                    {p.section && <span className="w-full text-xs font-bold uppercase tracking-wide text-primary">{p.section}</span>}
                     <span className="break-words">{p.name}</span>
                     {p.unit && <span className="whitespace-nowrap font-normal text-muted-foreground">({p.unit})</span>}
                     {p.optional && <span className="text-xs font-normal text-muted-foreground">· optional</span>}

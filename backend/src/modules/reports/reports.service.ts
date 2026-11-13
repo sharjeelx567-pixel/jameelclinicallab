@@ -103,6 +103,7 @@ export class ReportsService {
           if (!r || r.status !== 'approved')
             return { resultId: item.resultId, testName: item.testName, testCode: item.testCode, category, status: 'pending' as const, values: [] };
           const order2 = new Map(t?.parameters.map((p) => [p.id, p.sortOrder]) ?? []);
+          const sectionOf = new Map(t?.parameters.map((p) => [p.id, p.section?.trim()]) ?? []);
           return {
             resultId: r.id,
             testName: r.testName,
@@ -112,7 +113,10 @@ export class ReportsService {
             resultVersion: r.version,
             values: [...r.values]
               .sort((a, b) => (order2.get(a.parameterId) ?? 0) - (order2.get(b.parameterId) ?? 0))
-              .map((v) => ({ parameterName: v.parameterName, value: v.value, unit: v.unit, range: formatRange(v.referenceRange), flag: v.flag })),
+              .map((v) => {
+                const section = sectionOf.get(v.parameterId);
+                return { parameterName: v.parameterName, value: v.value, unit: v.unit, range: formatRange(v.referenceRange), flag: v.flag, ...(section ? { section } : {}) };
+              }),
             comment: r.approverComment,
             approvedBy: r.approvedBy?.name,
             approvedAt: r.approvedAt,

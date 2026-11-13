@@ -88,7 +88,7 @@ export function TestEditor({ test }: { test?: LabTest }) {
       sampleVolume: form.sampleVolume || undefined,
       collectionInstructions: form.collectionInstructions || undefined,
       processingInstructions: form.processingInstructions || undefined,
-      parameters: params.map(({ key: _k, ...p }, i) => ({ ...p, unit: p.unit || undefined, code: p.code || undefined, defaultValue: p.defaultValue?.trim() || undefined, optional: p.optional || undefined, sortOrder: i, options: p.inputType === 'select' ? p.options?.filter(Boolean) : undefined, ranges: p.ranges.map(({ status: _s, approvedBy: _a, approvedAt: _t, ...r }) => ({ ...r, text: r.text?.trim() || undefined })) })),
+      parameters: params.map(({ key: _k, ...p }, i) => ({ ...p, section: p.section?.trim() || undefined, unit: p.unit || undefined, code: p.code || undefined, defaultValue: p.defaultValue?.trim() || undefined, optional: p.optional || undefined, sortOrder: i, options: p.inputType === 'select' ? p.options?.filter(Boolean) : undefined, ranges: p.ranges.map(({ status: _s, approvedBy: _a, approvedAt: _t, ...r }) => ({ ...r, text: r.text?.trim() || undefined })) })),
       analyzerMappings: mappings.filter((m) => m.analyzerId && m.analyzerTestCode),
     };
     try {
@@ -177,6 +177,9 @@ export function TestEditor({ test }: { test?: LabTest }) {
                   <Button variant="ghost" size="icon" className="self-end text-destructive" onClick={() => setParams((ps) => ps.filter((x) => x.key !== p.key))} aria-label={`Remove ${p.name || 'parameter'}`}><Trash2 /></Button>
                 )}
               </div>
+              <Field label="Section heading (optional)" htmlFor={`ps-${p.key}`} className="mt-3" hint="Printed in bold above this row, e.g. PATIENT, DONOR or SCREENING REPORT. Write it only on the first row of each section.">
+                <Input id={`ps-${p.key}`} value={p.section ?? ''} onChange={(e) => updateParam(p.key, { section: e.target.value })} disabled={!editable} maxLength={60} placeholder="e.g. Donor" />
+              </Field>
               {p.inputType === 'select' && (
                 <Field label="Options (comma separated)" htmlFor={`po-${p.key}`} className="mt-3">
                   <Input id={`po-${p.key}`} value={(p.options ?? []).join(', ')} onChange={(e) => updateParam(p.key, { options: e.target.value.split(',').map((s) => s.trim()) })} disabled={!editable} placeholder="Reactive, Non-reactive" />

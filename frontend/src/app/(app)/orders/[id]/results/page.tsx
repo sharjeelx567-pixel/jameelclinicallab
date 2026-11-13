@@ -199,6 +199,7 @@ export default function OrderResultsPage() {
                     return (
                       <div key={p.id} className="grid grid-cols-[minmax(0,1fr)_minmax(9rem,15rem)] items-center gap-3">
                         <label htmlFor={inputId} className="min-w-0 text-sm">
+                          {p.section && <span className="block text-xs font-bold uppercase tracking-wide text-primary">{p.section}</span>}
                           <span className="font-medium">{p.name}</span> {p.unit && <span className="text-muted-foreground">({p.unit})</span>}
                           {p.optional && <span className="ml-1 text-xs text-muted-foreground">· optional</span>}
                           <span className="block whitespace-pre-line text-xs text-muted-foreground">{range}</span>

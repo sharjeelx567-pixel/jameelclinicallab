@@ -157,7 +157,16 @@ export async function renderReportPdf(
       doc.moveDown(0.6);
       continue;
     }
+    let section = '';
     for (const v of t.values) {
+      if (v.section && v.section !== section) {
+        ensure(30);
+        const sy = doc.y + 2;
+        doc.rect(colX[0] - 2, sy - 1, colW[0] + colW[1] * 0.6, 12).fillColor(COLORS.soft).fill();
+        doc.fillColor(COLORS.ink).font('Helvetica-BoldOblique').fontSize(8.6).text(v.section.toUpperCase(), colX[0], sy + 1, { width: colW[0] + colW[1] * 0.6 - 4, lineBreak: false });
+        doc.y = sy + 14;
+      }
+      section = v.section ?? '';
       const name = niceName(v.parameterName === 'Result' ? t.testName : v.parameterName);
       const rowH = Math.max(12, doc.heightOfString(v.range || '-', { width: colW[3] }) + 2, doc.heightOfString(name, { width: colW[0] }) + 2);
       ensure(rowH + 2);
