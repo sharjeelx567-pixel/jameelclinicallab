@@ -149,7 +149,7 @@ export async function renderReportPdf(
     ensure(34);
     // Test name band
     const ty = doc.y;
-    doc.rect(left + 4, ty - 1, width - 8, 13).fillColor(COLORS.soft).fill();
+    doc.rect(left + 4, ty - 1, width - 8, 13).fillColor(COLORS.band).fill();
     doc.fillColor(COLORS.ink).font('Helvetica-Bold').fontSize(8.8).text(t.testName.toUpperCase(), colX[0], ty + 1, { width: width - 30 });
     doc.y = ty + 15;
     if (t.status === 'pending') {
@@ -162,8 +162,9 @@ export async function renderReportPdf(
       if (v.section && v.section !== section) {
         ensure(30);
         const sy = doc.y + 2;
-        doc.rect(colX[0] - 2, sy - 1, colW[0] + colW[1] * 0.6, 12).fillColor(COLORS.soft).fill();
-        doc.fillColor(COLORS.ink).font('Helvetica-BoldOblique').fontSize(8.6).text(v.section.toUpperCase(), colX[0], sy + 1, { width: colW[0] + colW[1] * 0.6 - 4, lineBreak: false });
+        doc.rect(colX[0] - 2, sy - 1, colW[0] + colW[1] * 0.6, 12).fillColor('#cbd5e1').fill();
+        doc.rect(colX[0] - 2, sy - 1, 2.5, 12).fillColor(COLORS.ink).fill();
+        doc.fillColor(COLORS.ink).font('Helvetica-BoldOblique').fontSize(8.6).text(v.section.toUpperCase(), colX[0] + 3, sy + 1, { width: colW[0] + colW[1] * 0.6 - 7, lineBreak: false });
         doc.y = sy + 14;
       }
       section = v.section ?? '';
