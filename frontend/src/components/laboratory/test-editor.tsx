@@ -1,6 +1,6 @@
 'use client';
 
-import { BadgeCheck, Plus, ShieldAlert, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, BadgeCheck, Plus, ShieldAlert, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import * as React from 'react';
 import { toast } from 'sonner';
@@ -52,6 +52,15 @@ export function TestEditor({ test }: { test?: LabTest }) {
 
   const set = (k: keyof typeof form, v: string | boolean) => setForm((f) => ({ ...f, [k]: v }));
   const updateParam = (key: string, patch: Partial<ParamDraft>) => setParams((ps) => ps.map((p) => (p.key === key ? { ...p, ...patch } : p)));
+  /** Move a parameter up (-1) or down (+1); the saved order is the order printed on the report. */
+  const moveParam = (idx: number, dir: -1 | 1) =>
+    setParams((ps) => {
+      const j = idx + dir;
+      if (j < 0 || j >= ps.length) return ps;
+      const next = [...ps];
+      [next[idx], next[j]] = [next[j], next[idx]];
+      return next;
+    });
   const updateRange = (key: string, i: number, patch: Partial<RangeDraft>) =>
     setParams((ps) => ps.map((p) => (p.key === key ? { ...p, ranges: p.ranges.map((r, j) => (j === i ? { ...r, ...patch, status: undefined } : r)) } : p)));
 
@@ -174,7 +183,11 @@ export function TestEditor({ test }: { test?: LabTest }) {
                   <Field label="Analyzer code" htmlFor={`pc-${p.key}`}><Input id={`pc-${p.key}`} value={p.code ?? ''} onChange={(e) => updateParam(p.key, { code: e.target.value })} disabled={!editable} /></Field>
                 )}
                 {editable && params.length > 1 && (
-                  <Button variant="ghost" size="icon" className="self-end text-destructive" onClick={() => setParams((ps) => ps.filter((x) => x.key !== p.key))} aria-label={`Remove ${p.name || 'parameter'}`}><Trash2 /></Button>
+                  <div className="flex gap-1 self-end">
+                  <Button variant="ghost" size="icon" disabled={idx === 0} onClick={() => moveParam(idx, -1)} aria-label={`Move ${p.name || 'parameter'} up`} title="Move up"><ArrowUp /></Button>
+                  <Button variant="ghost" size="icon" disabled={idx === params.length - 1} onClick={() => moveParam(idx, 1)} aria-label={`Move ${p.name || 'parameter'} down`} title="Move down"><ArrowDown /></Button>
+                  <Button variant="ghost" size="icon" className="text-destructive" onClick={() => setParams((ps) => ps.filter((x) => x.key !== p.key))} aria-label={`Remove ${p.name || 'parameter'}`}><Trash2 /></Button>
+                  </div>
                 )}
               </div>
               <Field label="Section heading (optional)" htmlFor={`ps-${p.key}`} className="mt-3" hint="Printed in bold above this row, e.g. PATIENT, DONOR or SCREENING REPORT. Write it only on the first row of each section.">

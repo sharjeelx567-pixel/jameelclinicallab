@@ -19,6 +19,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { OrdersService } from '../orders/orders.service';
 import { SettingsService } from '../settings/settings.service';
 import { flagValue, isCritical, selectRange } from '../tests/reference-range';
+import { parameterSections } from '../tests/sections';
 
 export const EnterValuesDto = z.object({
   values: z.array(z.object({ parameterId: z.string().max(40), value: z.string().trim().max(200) })).max(80),
@@ -98,6 +99,7 @@ export class ResultsService {
       }),
     ]);
     if (!test || !order || !patient) throw notFound('Result context');
+    const sections = parameterSections(test.parameters);
     const parameters = [...test.parameters]
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .map((p) => {
@@ -111,7 +113,7 @@ export class ResultsService {
           decimals: p.decimals,
           defaultValue: p.defaultValue,
           optional: p.optional ?? false,
-          section: p.section,
+          section: sections.get(p.id),
           approvedRange: range ? { low: range.low, high: range.high, text: range.text, criticalLow: range.criticalLow, criticalHigh: range.criticalHigh } : null,
           hasDraftRanges: p.ranges.some((r) => r.status === 'draft'),
         };
