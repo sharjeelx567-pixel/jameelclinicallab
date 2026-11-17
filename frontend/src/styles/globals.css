@@ -253,12 +253,23 @@ tbody > tr:nth-child(n + 16) { animation-delay: 450ms; }
 }
 
 /* ─── Print ────────────────────────────────────────────────────────────────── */
+/* Page margin 0: the browser then has no room for its own header/footer (website address,
+   date, page title), so printouts never show the web link. The same white space is kept
+   as body padding, repeated on every page (box-decoration-break: clone). */
 @page {
   size: A4;
-  margin: 12mm 12mm 16mm;
+  margin: 0;
 }
 
 @media print {
+  html, body {
+    margin: 0 !important;
+  }
+  body {
+    padding: 12mm 12mm 16mm !important;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+  }
   /* Always white paper with dark ink, in light AND dark mode (see theme.css). */
   html, html.dark, body {
     background: #fff !important;
