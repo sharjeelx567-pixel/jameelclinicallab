@@ -169,16 +169,21 @@ export async function renderReportPdf(
       }
       section = v.section ?? '';
       const name = niceName(v.parameterName === 'Result' ? t.testName : v.parameterName);
-      const rowH = Math.max(12, doc.heightOfString(v.range || '-', { width: colW[3] }) + 2, doc.heightOfString(name, { width: colW[0] }) + 2);
+      // Rows get breathing space (about 5 pt between lines) so values are easy to read on paper.
+      const rowH = Math.max(17, doc.heightOfString(v.range || '-', { width: colW[3] }) + 7, doc.heightOfString(name, { width: colW[0] }) + 7);
       ensure(rowH + 2);
-      const y = doc.y;
+      const top = doc.y;
+      const y = top + 3.5;
       const flag = FLAG_LABEL[v.flag];
       doc.fillColor(COLORS.ink).font('Helvetica').fontSize(9).text(name, colX[0], y, { width: colW[0] });
       doc.fillColor(COLORS.ink).font('Helvetica-Bold').fontSize(9.3)
         .text(flag ? `${v.value}  ${flag}` : v.value, colX[1], y, { width: colW[1] });
-      doc.fillColor(COLORS.ink).font('Helvetica').fontSize(9).text(v.unit ?? '', colX[2], y, { width: colW[2] });
+      // The built-in PDF font has ¹ ² ³ but no other superscript digits (×10⁶ would print as "×10 v").
+      const unit = (v.unit ?? '').replace(/[⁰⁴⁵⁶⁷⁸⁹]/g, (c) => `^${'⁰¹²³⁴⁵⁶⁷⁸⁹'.indexOf(c)}`);
+      doc.fillColor(COLORS.ink).font('Helvetica').fontSize(9).text(unit, colX[2], y, { width: colW[2] });
       doc.fillColor(v.range ? COLORS.ink : COLORS.muted).text(v.range || '-', colX[3], y, { width: colW[3] });
-      doc.y = y + rowH;
+      doc.moveTo(colX[0], top + rowH).lineTo(left + width - 4, top + rowH).lineWidth(0.5).strokeColor('#8a8a8a').stroke();
+      doc.y = top + rowH;
     }
     if (t.comment) {
       ensure(20);

@@ -92,7 +92,9 @@ export function ReportDocument({
       {/* Results, grouped by department */}
       <section className="mt-2 space-y-3">
         {tests.map((t, i) => (
-          <div key={t.resultId} className="print-avoid-break">
+          // Short tests never split across pages; a long one (e.g. a full CBC) may continue on the
+          // next page rather than leaving the first page empty.
+          <div key={t.resultId} className={cn(t.values.length <= 15 && 'print-avoid-break')}>
             {(i === 0 || tests[i - 1].category !== t.category) && (
               <>
                 <h2 className="mt-1 text-center font-serif text-[12pt] font-bold uppercase tracking-wide">{t.category}</h2>
@@ -114,7 +116,7 @@ export function ReportDocument({
                   return (
                     <Fragment key={`${v.parameterName}-${j}`}>
                     {heading && <div className="mx-3 mt-1.5 w-1/2 border-l-4 border-black bg-slate-300 px-1.5 py-[1px] text-[9.5pt] font-bold uppercase italic text-black">{heading}</div>}
-                    <div className="grid grid-cols-[40%_18%_17%_25%] border-b border-slate-400 px-3 py-[3px] text-[10pt] text-black last:border-b-0">
+                    <div className="grid grid-cols-[40%_18%_17%_25%] border-b border-slate-400 px-3 py-[4px] text-[10pt] print:break-inside-avoid print:py-[5px] text-black last:border-b-0">
                       <span className="text-[9.5pt]">{niceName(v.parameterName === 'Result' ? t.testName : v.parameterName)}</span>
                       <span className={cn('tabular font-semibold', abnormal && 'font-extrabold')}>
                         {v.value}
