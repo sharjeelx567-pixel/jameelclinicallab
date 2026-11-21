@@ -58,9 +58,16 @@ export function ReportDocument({
       <header className="flex items-center gap-4">
         <LabLogoMark className="size-24 shrink-0" alt={s.lab.name} />
         <div className="min-w-0 flex-1 text-center">
-          <h1 className="font-serif text-[22pt] font-bold uppercase leading-tight tracking-wide text-slate-900">{s.lab.name}</h1>
+          {/* Lab name on ONE line, stretched to the full width of the letterhead. */}
+          <h1 className="text-slate-900" aria-label={s.lab.name}>
+            <svg viewBox="0 0 1000 60" className="block h-auto w-full" aria-hidden>
+              <text x="500" y="49" textAnchor="middle" textLength="1000" lengthAdjust="spacingAndGlyphs" fill="currentColor" className="font-serif" fontSize="56" fontWeight="700">
+                {s.lab.name.toUpperCase()}
+              </text>
+            </svg>
+          </h1>
           {s.lab.tagline && <p className="text-[11pt] font-bold text-[#15803d] print:text-black">{s.lab.tagline}</p>}
-          {(s.lab.address || s.lab.phone) && <p className="text-[9.5pt] font-semibold">{[s.lab.address, s.lab.phone && `Ph# ${s.lab.phone}`].filter(Boolean).join('. ')}</p>}
+          {s.lab.address && <p className="text-[9.5pt] font-semibold">{s.lab.address}</p>}
         </div>
       </header>
       <p className="mt-1 border-b-2 border-slate-800 pb-1 text-center font-serif text-[11.5pt] font-bold uppercase tracking-wide">

@@ -66,10 +66,17 @@ export async function renderReportPdf(
       }
     }
     const tw = width - (textX - left);
-    doc.fillColor(COLORS.ink).font('Times-Bold').fontSize(20).text(s.lab.name.toUpperCase(), textX, top + 4, { width: tw, align: 'center' });
+    // Lab name on ONE line, as large as fits, letters spaced out to fill the letterhead width.
+    const name = s.lab.name.toUpperCase();
+    let size = 24;
+    doc.font('Times-Bold').fontSize(size);
+    while (size > 12 && doc.widthOfString(name) > tw) doc.fontSize(--size);
+    const spacing = name.length > 1 ? Math.min(6, Math.max(0, (tw - doc.widthOfString(name) - 2) / (name.length - 1))) : 0;
+    doc.fillColor(COLORS.ink).text(name, textX, top + 4, { width: tw + spacing, align: 'center', characterSpacing: spacing, lineBreak: false });
+    doc.y = top + 4 + size * 1.15;
     if (s.lab.tagline) doc.fillColor(COLORS.green).font('Helvetica-Bold').fontSize(10.5).text(s.lab.tagline, textX, doc.y + 1, { width: tw, align: 'center' });
-    const contact = [s.lab.address, s.lab.phone && `Ph# ${s.lab.phone}`].filter(Boolean).join('. ');
-    if (contact) doc.fillColor(COLORS.ink).font('Helvetica-Bold').fontSize(9).text(contact, textX, doc.y + 2, { width: tw, align: 'center' });
+    // Address only: the phone number is not printed in the report header.
+    if (s.lab.address) doc.fillColor(COLORS.ink).font('Helvetica-Bold').fontSize(9).text(s.lab.address, textX, doc.y + 2, { width: tw, align: 'center' });
     let y = Math.max(doc.y + 4, top + 74);
     doc.fillColor(COLORS.ink).font('Times-Bold').fontSize(11.5).text(`CLINICAL LABORATORY REPORT${report.status === 'interim' || report.status === 'superseded' ? `  (${report.status.toUpperCase()})` : ''}`, left, y, { width, align: 'center' });
     y = doc.y + 2;
