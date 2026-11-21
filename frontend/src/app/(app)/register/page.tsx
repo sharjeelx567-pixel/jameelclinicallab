@@ -51,7 +51,13 @@ export default function RegisterAndBillPage() {
   const [selected, setSelected] = React.useState<string[]>([]);
   const [query, setQuery] = React.useState('');
   const [department, setDepartment] = React.useState('');
-  const [doctorId, setDoctorId] = React.useState('');
+  // Doctor: pick from the list or type any name (a doctor not in the list is printed as typed).
+  const [doctorText, setDoctorText] = React.useState('');
+  const doctorLabel = (d: { name: string; clinic?: string }) => `${d.name}${d.clinic ? ` — ${d.clinic}` : ''}`;
+  const typed = doctorText.trim();
+  const pickedDoctor = typed && !/^self$/i.test(typed) ? doctors.data?.items.find((d) => doctorLabel(d).toLowerCase() === typed.toLowerCase() || d.name.toLowerCase() === typed.toLowerCase()) : undefined;
+  const doctorId = pickedDoctor?.id ?? '';
+  const doctorName = typed && !/^self$/i.test(typed) && !pickedDoctor ? typed : undefined;
   const [discount, setDiscount] = React.useState('');
   const [discountReason, setDiscountReason] = React.useState('');
   const [paid, setPaid] = React.useState('');
@@ -112,7 +118,8 @@ export default function RegisterAndBillPage() {
       {
         patientId: patient.id,
         testIds: selected,
-        doctorId: doctorId || patient.referringDoctorId || undefined,
+        doctorId: doctorId || (doctorName ? undefined : patient.referringDoctorId) || undefined,
+        doctorName,
         priority: 'routine',
         discount: discountN > 0 ? { amount: discountN, reason: discountReason.trim() } : undefined,
         advancePayment: paidN > 0 ? { amount: paidN, method, reference: reference_.trim() || undefined } : undefined,
@@ -247,8 +254,9 @@ export default function RegisterAndBillPage() {
                 </form>
               )}
               <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field label="Advised by (doctor)" htmlFor="r-doc">
-                  <Select id="r-doc" value={doctorId} onChange={(e) => setDoctorId(e.target.value)}><option value="">Self</option>{doctors.data?.items.map((d) => <option key={d.id} value={d.id}>{d.name}{d.clinic ? ` — ${d.clinic}` : ''}</option>)}</Select>
+                <Field label="Advised by (doctor)" htmlFor="r-doc" hint="Empty = Self. Not in the list? Just type the doctor's name.">
+                  <Input id="r-doc" list="r-doc-list" value={doctorText} onChange={(e) => setDoctorText(e.target.value)} placeholder="Self — or choose / type a doctor's name" maxLength={80} autoComplete="off" />
+                  <datalist id="r-doc-list">{doctors.data?.items.map((d) => <option key={d.id} value={doctorLabel(d)} />)}</datalist>
                 </Field>
               </div>
             </CardContent>

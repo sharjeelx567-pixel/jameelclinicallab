@@ -12,12 +12,21 @@ import { TestsModule } from '../tests/tests.module';
 export class ReportsController {
   constructor(private readonly reports: ReportsService) {}
 
-  /** Public QR verification — strictly rate limited, returns no clinical data. */
+  /** Public QR page — strictly rate limited; the full report only when the bill is fully paid. */
   @Public()
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Get('verify/:code')
   verify(@Param('code') code: string) {
     return this.reports.verify(code);
+  }
+
+  /** Public PDF download from the QR page — only when the bill is fully paid. */
+  @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Get('verify/:code/pdf')
+  async publicPdf(@Param('code') code: string) {
+    const { buffer, filename } = await this.reports.publicPdf(code);
+    return new StreamableFile(buffer, { type: 'application/pdf', disposition: `attachment; filename="${filename}"` });
   }
 
   @Get()

@@ -76,6 +76,8 @@ export interface CreateOrderInput {
   patientId: string;
   testIds: string[];
   doctorId?: string;
+  /** Doctor typed by hand (not in the Doctors list). */
+  doctorName?: string;
   panelId?: string | null;
   priority: Priority;
   clinicalNotes?: string;
@@ -129,10 +131,22 @@ export const reportsService = {
   pdf: (id: string) => api.blob(`/reports/${id}/pdf`),
   recordBrowserPrint: (id: string) => api.post<void>(`/reports/${id}/prints`),
   prints: (id: string) => api.get<Array<{ id: string; channel: string; by: { name: string }; at: string; copy: number }>>(`/reports/${id}/prints`),
+  /** Public QR page: the full report only when the bill is fully paid (`access: 'released'`). */
   verify: (code: string) =>
-    api.get<{ valid: boolean; laboratory?: string; reportNumber?: string; version?: number; status?: string; generatedAt?: string; patientInitials?: string; mrNumberMasked?: string; current?: boolean }>(
-      `/reports/verify/${encodeURIComponent(code)}`,
-    ),
+    api.get<{
+      valid: boolean;
+      laboratory?: string;
+      reportNumber?: string;
+      version?: number;
+      status?: string;
+      generatedAt?: string;
+      patientInitials?: string;
+      mrNumberMasked?: string;
+      current?: boolean;
+      access?: 'released' | 'payment_pending' | 'superseded' | 'unavailable';
+      report?: Pick<Report, 'id' | 'reportNumber' | 'version' | 'status' | 'snapshot' | 'verificationCode' | 'generatedAt'>;
+    }>(`/reports/verify/${encodeURIComponent(code)}`),
+  publicPdf: (code: string) => api.blob(`/reports/verify/${encodeURIComponent(code)}/pdf`),
 };
 
 /** One filled row of the normal-ranges spreadsheet (empty cells are sent as ''). */

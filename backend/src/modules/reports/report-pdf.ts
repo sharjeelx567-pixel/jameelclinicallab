@@ -189,7 +189,6 @@ export async function renderReportPdf(
       const unit = (v.unit ?? '').replace(/[⁰⁴⁵⁶⁷⁸⁹]/g, (c) => `^${'⁰¹²³⁴⁵⁶⁷⁸⁹'.indexOf(c)}`);
       doc.fillColor(COLORS.ink).font('Helvetica').fontSize(9).text(unit, colX[2], y, { width: colW[2] });
       doc.fillColor(v.range ? COLORS.ink : COLORS.muted).text(v.range || '-', colX[3], y, { width: colW[3] });
-      doc.moveTo(colX[0], top + rowH).lineTo(left + width - 4, top + rowH).lineWidth(0.5).strokeColor('#8a8a8a').stroke();
       doc.y = top + rowH;
     }
     if (t.comment) {

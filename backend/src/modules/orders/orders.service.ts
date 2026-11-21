@@ -57,6 +57,8 @@ export const CreateOrderDto = z.object({
   patientId: docId,
   testIds: z.array(docId).min(1, 'Select at least one test').max(60),
   doctorId: docId.optional(),
+  /** A doctor typed by hand (not in the Doctors list); printed on the report as written. */
+  doctorName: z.string().trim().max(80).optional(),
   /** Defaults to the patient's panel. Send null to bill privately. */
   panelId: docId.nullable().optional(),
   technicianId: z.string().max(128).optional(),
@@ -159,7 +161,8 @@ export class OrdersService {
       // ── all reads first ──
       const patient = await tx.get<PatientDoc>(C.patients, dto.patientId);
       if (!patient || patient.status !== 'active') throw badRequest('PATIENT_UNAVAILABLE', 'Patient not found or archived');
-      const doctorId = dto.doctorId ?? patient.referringDoctorId;
+      const typedDoctor = !dto.doctorId && dto.doctorName ? dto.doctorName : undefined;
+      const doctorId = dto.doctorId ?? (typedDoctor ? undefined : patient.referringDoctorId);
       const doctor = doctorId ? await tx.get<DoctorDoc>(C.doctors, doctorId) : null;
       if (dto.doctorId && !doctor) throw badRequest('DOCTOR_NOT_FOUND', 'Referring doctor not found');
       const panelId = dto.panelId === null ? undefined : (dto.panelId ?? patient.panelId);
@@ -228,7 +231,7 @@ export class OrdersService {
         patientMrNumber: patient.mrNumber,
         patientName: patient.name,
         doctorId: doctor?.id,
-        doctorName: doctor?.name,
+        doctorName: doctor?.name ?? typedDoctor,
         panelId: panel?.id,
         technicianId: dto.technicianId,
         priority: dto.priority,

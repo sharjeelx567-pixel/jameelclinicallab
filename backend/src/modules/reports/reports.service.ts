@@ -2,8 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { OrderDoc, PatientDoc, ReportDoc, ReportSnapshot, ResultDoc, SampleDoc, TestDoc } from '../../common/entities';
-import { conflict, notFound, unprocessable } from '../../common/errors';
-import { AuthUser, toActor } from '../../common/types';
+import { conflict, forbidden, notFound, unprocessable } from '../../common/errors';
+import { AuditActor, AuthUser, toActor } from '../../common/types';
 import { getEnv } from '../../config/env';
 import { C, DataStore, WhereClause } from '../../database/data-store';
 import { pad, reserveSequences, verificationCode, yearCode } from '../../utils';
@@ -173,21 +173,22 @@ export class ReportsService {
   }
 
   /** Records every print / download — the "reprint history". */
-  async recordPrint(id: string, channel: 'pdf' | 'browser', actor: AuthUser): Promise<ReportDoc> {
+  async recordPrint(id: string, channel: 'pdf' | 'browser' | 'qr', actor: AuthUser | AuditActor): Promise<ReportDoc> {
+    const by: AuditActor = 'displayName' in actor ? toActor(actor) : actor;
     const report = await this.store.transaction(async (tx) => {
       const r = await tx.get<ReportDoc>(C.reports, id);
       if (!r) throw notFound('Report');
       const printId = this.store.newId();
       tx.update(C.reports, id, { printCount: r.printCount + 1 });
-      tx.create(C.reportPrints, printId, { id: printId, reportId: id, channel, by: toActor(actor), at: this.store.now(), copy: r.printCount + 1 });
-      this.audit.recordInTx(tx, { action: r.printCount ? 'report.reprint' : 'report.print', entity: 'report', entityId: id, actor: toActor(actor), changes: { channel, copy: r.printCount + 1 } });
+      tx.create(C.reportPrints, printId, { id: printId, reportId: id, channel, by, at: this.store.now(), copy: r.printCount + 1 });
+      this.audit.recordInTx(tx, { action: r.printCount ? 'report.reprint' : 'report.print', entity: 'report', entityId: id, actor: by, changes: { channel, copy: r.printCount + 1 } });
       return r;
     });
     return report;
   }
 
-  async pdf(id: string, actor: AuthUser): Promise<{ buffer: Buffer; filename: string }> {
-    const report = await this.recordPrint(id, 'pdf', actor);
+  async pdf(id: string, actor: AuthUser | AuditActor, channel: 'pdf' | 'qr' = 'pdf'): Promise<{ buffer: Buffer; filename: string }> {
+    const report = await this.recordPrint(id, channel, actor);
     const settings = await this.settings.get();
     // The round JCL logo shipped with the app (backend/assets/jcl-logo-round.png) is always
     // preferred: it shows the whole logo inside the circle. An uploaded logo is only a fallback.
@@ -209,14 +210,19 @@ export class ReportsService {
     return { buffer, filename: `${report.reportNumber}-v${report.version}.pdf` };
   }
 
-  /** Public verification. Returns only what is needed to confirm authenticity — no results. */
+  /**
+   * Public QR page. Anyone holding the printed report (its QR code carries a random
+   * 10-character code, rate limited) can confirm it is genuine. The full report is
+   * shown ONLY when it is the current version and the bill is fully paid; with any
+   * balance due the page asks the patient to clear it at the laboratory first.
+   */
   async verify(code: string) {
     const clean = code.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16);
     const res = await this.store.query<ReportDoc>(C.reports, { where: [{ field: 'verificationCode', op: '==', value: clean }], limit: 1 });
     const r = res.items[0];
     if (!r) return { valid: false as const };
     const initials = r.snapshot.patient.name.split(/\s+/).map((w) => `${w[0]}.`).join(' ');
-    return {
+    const base = {
       valid: true as const,
       laboratory: r.snapshot.lab.name,
       reportNumber: r.reportNumber,
@@ -227,5 +233,27 @@ export class ReportsService {
       mrNumberMasked: r.snapshot.patient.mrNumber.replace(/.(?=.{3})/g, '•'),
       current: r.status !== 'superseded',
     };
+    const access = await this.publicAccess(r);
+    if (access !== 'released') return { ...base, access };
+    const { id, reportNumber, version, status, snapshot, verificationCode, generatedAt } = r;
+    return { ...base, access, report: { id, reportNumber, version, status, snapshot, verificationCode, generatedAt } };
+  }
+
+  /** PDF download from the public QR page: same rules as `verify`. */
+  async publicPdf(code: string): Promise<{ buffer: Buffer; filename: string }> {
+    const clean = code.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16);
+    const r = (await this.store.query<ReportDoc>(C.reports, { where: [{ field: 'verificationCode', op: '==', value: clean }], limit: 1 })).items[0];
+    if (!r) throw notFound('Report');
+    const access = await this.publicAccess(r);
+    if (access === 'payment_pending') throw forbidden('Payment is pending. Please clear the balance at the laboratory to download this report.');
+    if (access !== 'released') throw forbidden('This report is not available for download. Please contact the laboratory.');
+    return this.pdf(r.id, { uid: 'public-qr', name: 'Patient (QR code)', role: 'system' }, 'qr');
+  }
+
+  private async publicAccess(r: ReportDoc): Promise<'released' | 'superseded' | 'payment_pending' | 'unavailable'> {
+    if (r.status === 'superseded') return 'superseded';
+    const order = await this.store.get<OrderDoc>(C.orders, r.orderId);
+    if (!order || order.status === 'cancelled') return 'unavailable';
+    return order.billing.balance > 0 ? 'payment_pending' : 'released';
   }
 }

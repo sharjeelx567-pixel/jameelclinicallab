@@ -248,11 +248,12 @@ describe('complete laboratory workflow', () => {
     expect((await api().get(`/api/v1/reports/${reportId}`).set(as(INV))).status).toBe(403);
   });
 
-  it('public verification reveals no results', async () => {
+  it('QR page: with a balance due it confirms the report but shows no results and blocks the download', async () => {
     const res = await api().get(`/api/v1/reports/verify/${verificationCode}`);
     expect(res.status).toBe(200);
-    expect(res.body.data).toMatchObject({ valid: true, current: true, status: 'final' });
+    expect(res.body.data).toMatchObject({ valid: true, current: true, status: 'final', access: 'payment_pending' });
     expect(JSON.stringify(res.body.data)).not.toMatch(/450|Alpha|Glucose/);
+    expect((await api().get(`/api/v1/reports/verify/${verificationCode}/pdf`)).status).toBe(403);
     expect((await api().get('/api/v1/reports/verify/NOTAREALCODE')).body.data.valid).toBe(false);
   });
 
@@ -267,6 +268,20 @@ describe('complete laboratory workflow', () => {
     expect(refundTooBig.status).toBe(422);
     const daily = await api().get('/api/v1/billing/daily-summary').set(as(ACC));
     expect(daily.body.data.totals.collected).toBe(1500);
+  });
+
+  it('QR page: once the bill is fully paid it shows the whole report and allows the PDF download', async () => {
+    const res = await api().get(`/api/v1/reports/verify/${verificationCode}`);
+    expect(res.body.data).toMatchObject({ valid: true, access: 'released' });
+    expect(res.body.data.report.snapshot.tests.length).toBeGreaterThan(0);
+    expect(res.body.data.report).not.toHaveProperty('generatedBy');
+    const pdf = await api().get(`/api/v1/reports/verify/${verificationCode}/pdf`).buffer(true).parse((r, cb) => {
+      const chunks: Buffer[] = [];
+      r.on('data', (c: Buffer) => chunks.push(c));
+      r.on('end', () => cb(null, Buffer.concat(chunks)));
+    });
+    expect(pdf.status).toBe(200);
+    expect((pdf.body as Buffer).subarray(0, 4).toString()).toBe('%PDF');
   });
 
   it('shows complete patient history', async () => {
