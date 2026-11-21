@@ -603,3 +603,20 @@ describe('database usage monitor', () => {
     expect((rep.today.caches as Array<{ name: string }>).map((c) => c.name)).toEqual(expect.arrayContaining(['tests', 'settings']));
   });
 });
+
+describe('Doctor typed at registration', () => {
+  it('saves a new typed doctor to the list once and links later orders to it', async () => {
+    const p = await api().post('/api/v1/patients').set(as(R)).send({ name: 'Typed Doctor Check', gender: 'male', ageYears: 40, mobile: '03001112233', confirmNotDuplicate: true });
+    expect(p.status).toBe(201);
+    const first = await api().post('/api/v1/orders').set(as(R)).send({ patientId: p.body.data.id, testIds: ['test-fbs'], priority: 'routine', doctorName: '  Dr.  Hand   Typed ' });
+    expect(first.status).toBe(201);
+    expect(first.body.data).toMatchObject({ doctorName: 'Dr. Hand Typed' });
+    expect(first.body.data.doctorId).toBeTruthy();
+    const list = await api().get('/api/v1/doctors').set(as(R)).query({ status: 'active', limit: 100 });
+    expect(list.body.data.items.filter((d: { name: string }) => d.name === 'Dr. Hand Typed')).toHaveLength(1);
+    const second = await api().post('/api/v1/orders').set(as(R)).send({ patientId: p.body.data.id, testIds: ['test-fbs'], priority: 'routine', doctorName: 'Dr. Hand Typed' });
+    expect(second.body.data.doctorId).toBe(first.body.data.doctorId);
+    const again = await api().get('/api/v1/doctors').set(as(R)).query({ status: 'active', limit: 100 });
+    expect(again.body.data.items.filter((d: { name: string }) => d.name === 'Dr. Hand Typed')).toHaveLength(1);
+  });
+});

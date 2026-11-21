@@ -25,6 +25,7 @@ import { cn, formatMoney, titleCase } from '@/lib/utils';
 import { settingsService } from '@/services/admin.service';
 import { catalogService, ordersService, type CatalogTest } from '@/services/lab.service';
 import { doctorsService, patientsService } from '@/services/patients.service';
+import { SuggestInput } from '@/components/shared/suggest-input';
 import type { DuplicateCandidate, Patient, PaymentMethod } from '@/types';
 import { BrandLoader } from '@/components/shared/brand-loader';
 
@@ -194,7 +195,7 @@ export default function RegisterAndBillPage() {
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
         <div className="min-w-0 space-y-6">
           {/* 1. Patient */}
-          <Card>
+          <Card className="relative z-20">
             <CardHeader>
               <div><CardTitle>1. Patient</CardTitle><CardDescription>New patient, or search an existing one by MR no., name, mobile or CNIC.</CardDescription></div>
               <Tabs value={mode} onValueChange={(v) => setMode(v as 'new' | 'existing')}>
@@ -254,9 +255,16 @@ export default function RegisterAndBillPage() {
                 </form>
               )}
               <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field label="Advised by (doctor)" htmlFor="r-doc" hint="Empty = Self. Not in the list? Just type the doctor's name.">
-                  <Input id="r-doc" list="r-doc-list" value={doctorText} onChange={(e) => setDoctorText(e.target.value)} placeholder="Self — or choose / type a doctor's name" maxLength={80} autoComplete="off" />
-                  <datalist id="r-doc-list">{doctors.data?.items.map((d) => <option key={d.id} value={doctorLabel(d)} />)}</datalist>
+                <Field label="Advised by (doctor)" htmlFor="r-doc" hint="Empty = Self. Saved doctors appear as you type; a new name is saved automatically.">
+                  <SuggestInput
+                    id="r-doc"
+                    value={doctorText}
+                    onChange={setDoctorText}
+                    suggestions={doctors.data?.items.map(doctorLabel) ?? []}
+                    placeholder="Self — or type a doctor's name"
+                    maxLength={80}
+                    emptyHint="New name: it will be saved to Doctors and suggested next time."
+                  />
                 </Field>
               </div>
             </CardContent>

@@ -23,7 +23,8 @@ export const patientSchema = z
     guardianName: optional(z.string().trim().max(100)),
     guardianRelation: z.enum(['father', 'husband', 'other', '']).optional(),
     dateOfBirth: optional(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)),
-    ageYears: z.union([z.coerce.number().int().min(0, 'Invalid age').max(130, 'Invalid age'), z.literal('')]).optional(),
+    // '' must be tried first: z.coerce.number('') is 0, which let an EMPTY age through as "0 Y".
+    ageYears: z.union([z.literal(''), z.coerce.number().int().min(0, 'Invalid age').max(130, 'Invalid age')]).optional(),
     gender: z.enum(['male', 'female', 'other'], { message: 'Select gender' }),
     mobile,
     alternateMobile: z.union([mobile, z.literal('')]).optional(),

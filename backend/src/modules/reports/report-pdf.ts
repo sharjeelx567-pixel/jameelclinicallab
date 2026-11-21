@@ -73,7 +73,7 @@ export async function renderReportPdf(
     while (size > 12 && doc.widthOfString(name) > tw) doc.fontSize(--size);
     const spacing = name.length > 1 ? Math.min(6, Math.max(0, (tw - doc.widthOfString(name) - 2) / (name.length - 1))) : 0;
     doc.fillColor(COLORS.ink).text(name, textX, top + 4, { width: tw + spacing, align: 'center', characterSpacing: spacing, lineBreak: false });
-    doc.y = top + 4 + size * 1.15;
+    doc.y = top + 4 + size * 0.98;
     if (s.lab.tagline) doc.fillColor(COLORS.green).font('Helvetica-Bold').fontSize(10.5).text(s.lab.tagline, textX, doc.y + 1, { width: tw, align: 'center' });
     // Address only: the phone number is not printed in the report header.
     if (s.lab.address) doc.fillColor(COLORS.ink).font('Helvetica-Bold').fontSize(9).text(s.lab.address, textX, doc.y + 2, { width: tw, align: 'center' });
@@ -86,7 +86,6 @@ export async function renderReportPdf(
     const rowsL: Array<[string, string]> = [
       ['Patient Name', s.patient.name],
       ...(s.patient.guardian ? [['Father/Husband', s.patient.guardian] as [string, string]] : []),
-      ['Address', s.patient.address ?? '-'],
       ['Age & Gender', `${s.patient.age ?? '-'} ${cap(s.patient.gender)}`],
       ['MR No.', s.patient.mrNumber],
       ['Referred By', s.doctorName ?? 'Self'],
@@ -104,7 +103,7 @@ export async function renderReportPdf(
       let yy = blockTop;
       for (const [k, v] of rows) {
         doc.fillColor(COLORS.muted).font('Helvetica').fontSize(8.5).text(k, labelX, yy, { width: labelW });
-        const value = `:- ${v}`;
+        const value = `: ${v}`;
         doc.font('Helvetica-Bold').fontSize(9);
         const h = Math.min(doc.heightOfString(value, { width: valueW }), 36);
         doc.fillColor(COLORS.ink).text(value, valueX, yy, { width: valueW, height: h + 1, ellipsis: true });

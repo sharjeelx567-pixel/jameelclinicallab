@@ -42,7 +42,7 @@ export function ReportDocument({
   const Row = ({ k, v }: { k: string; v?: ReactNode }) => (
     <div className="grid grid-cols-[7.8rem_1fr] gap-1 py-[1px]">
       <span className="text-slate-900">{k}</span>
-      <span className="font-bold">:- {v || '—'}</span>
+      <span className="font-bold">: {v || '—'}</span>
     </div>
   );
 
@@ -60,13 +60,13 @@ export function ReportDocument({
         <div className="min-w-0 flex-1 text-center">
           {/* Lab name on ONE line, stretched to the full width of the letterhead. */}
           <h1 className="text-slate-900" aria-label={s.lab.name}>
-            <svg viewBox="0 0 1000 60" className="block h-auto w-full" aria-hidden>
-              <text x="500" y="49" textAnchor="middle" textLength="1000" lengthAdjust="spacingAndGlyphs" fill="currentColor" className="font-serif" fontSize="56" fontWeight="700">
+            <svg viewBox="0 0 1000 50" className="block h-auto w-full" aria-hidden>
+              <text x="500" y="45" textAnchor="middle" textLength="1000" lengthAdjust="spacingAndGlyphs" fill="currentColor" className="font-serif" fontSize="56" fontWeight="700">
                 {s.lab.name.toUpperCase()}
               </text>
             </svg>
           </h1>
-          {s.lab.tagline && <p className="text-[11pt] font-bold text-[#15803d] print:text-black">{s.lab.tagline}</p>}
+          {s.lab.tagline && <p className="mt-0.5 text-[11.5pt] font-bold leading-tight tracking-wide text-[#15803d] print:text-black">{s.lab.tagline}</p>}
           {s.lab.address && <p className="text-[9.5pt] font-semibold">{s.lab.address}</p>}
         </div>
       </header>
@@ -80,7 +80,6 @@ export function ReportDocument({
         <div>
           <Row k="Patient Name" v={s.patient.name} />
           {s.patient.guardian && <Row k="Father/Husband" v={s.patient.guardian} />}
-          <Row k="Address" v={s.patient.address} />
           <Row k="Age & Gender" v={`${s.patient.age ?? '—'} ${titleCase(s.patient.gender)}`} />
           <Row k="MR No." v={s.patient.mrNumber} />
           <Row k="Referred By" v={s.doctorName ?? 'Self'} />
@@ -160,7 +159,7 @@ export function ReportDocument({
         <div className="mt-1 flex flex-wrap justify-between gap-2 text-[8.5pt] text-slate-900">
           <span>Print Date &amp; Time: {formatDateTime(new Date().toISOString())}</span>
           <span>Report No. {report.reportNumber}{s.lab.phone ? ` · For any query please contact: ${s.lab.phone}` : ` · Thank you for choosing ${s.lab.name}`}</span>
-          {printedBy && <span>Printed By:- {printedBy}</span>}
+          {printedBy && <span>Printed By: {printedBy}</span>}
         </div>
       </footer>
     </article>

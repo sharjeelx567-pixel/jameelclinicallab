@@ -37,6 +37,7 @@ import { AuditService } from '../audit-logs/audit.service';
 import { SettingsService } from '../settings/settings.service';
 import { TestsService } from '../tests/tests.service';
 import { deriveOrderStatus } from './order-status';
+import { touchDoctors } from '../doctors/doctors.service';
 
 export interface StatusBase {
   samples: Map<string, SampleStatus>;
@@ -156,14 +157,22 @@ export class OrdersService {
     const settings = await this.settings.get();
     const tests = await this.loadTests(dto.testIds);
     const orderId = this.store.newId();
+    let doctorAdded = false;
 
     const order = await this.store.transaction(async (tx) => {
+      doctorAdded = false; // a retried transaction starts over
       // ── all reads first ──
       const patient = await tx.get<PatientDoc>(C.patients, dto.patientId);
       if (!patient || patient.status !== 'active') throw badRequest('PATIENT_UNAVAILABLE', 'Patient not found or archived');
-      const typedDoctor = !dto.doctorId && dto.doctorName ? dto.doctorName : undefined;
+      // A doctor typed by hand is looked up by name; a new name is saved to the Doctors
+      // list (active, no commission) so it is suggested next time.
+      const typedDoctor = !dto.doctorId && dto.doctorName ? dto.doctorName.replace(/\s+/g, ' ').trim() : undefined;
       const doctorId = dto.doctorId ?? (typedDoctor ? undefined : patient.referringDoctorId);
-      const doctor = doctorId ? await tx.get<DoctorDoc>(C.doctors, doctorId) : null;
+      const sameName = typedDoctor ? (await tx.query<DoctorDoc>(C.doctors, { where: [{ field: 'name', op: '==', value: typedDoctor }], limit: 1 }))[0] : undefined;
+      const stamp = this.store.now();
+      const addedDoctor: DoctorDoc | undefined =
+        typedDoctor && !sameName ? { id: this.store.newId(), name: typedDoctor, status: 'active', searchTokens: buildSearchTokens(typedDoctor), createdAt: stamp, updatedAt: stamp } : undefined;
+      const doctor = doctorId ? await tx.get<DoctorDoc>(C.doctors, doctorId) : (sameName ?? addedDoctor ?? null);
       if (dto.doctorId && !doctor) throw badRequest('DOCTOR_NOT_FOUND', 'Referring doctor not found');
       const panelId = dto.panelId === null ? undefined : (dto.panelId ?? patient.panelId);
       const panel = panelId ? await tx.get<PanelDoc>(C.insurancePanels, panelId) : null;
@@ -308,6 +317,11 @@ export class OrdersService {
       if (home) {
         tx.update(C.homeSamplingRequests, home.id, { orderId, patientId: patient.id, updatedAt: now });
       }
+      if (addedDoctor) {
+        tx.create(C.doctors, addedDoctor.id, addedDoctor);
+        this.audit.recordInTx(tx, { action: 'doctor.create', entity: 'doctor', entityId: addedDoctor.id, actor: by, note: 'Added from patient registration' });
+        doctorAdded = true;
+      }
       this.audit.recordInTx(tx, {
         action: 'order.create',
         entity: 'order',
@@ -317,6 +331,7 @@ export class OrdersService {
       });
       return doc;
     });
+    if (doctorAdded) await touchDoctors(this.store);
     return order;
   }
 

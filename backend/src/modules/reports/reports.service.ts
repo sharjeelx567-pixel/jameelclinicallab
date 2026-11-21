@@ -16,6 +16,17 @@ import { orderedParameters, parameterSections } from '../tests/sections';
 import { TestsService } from '../tests/tests.service';
 import { renderReportPdf } from './report-pdf';
 
+/** "25 Y"; under one year from the date of birth: "8 M" or "20 D"; an age entered as 0 without a date of birth: "< 1 Y". */
+function ageText(p: Pick<PatientDoc, 'ageYears' | 'dateOfBirth'>, at = new Date()): string | undefined {
+  if (p.ageYears === undefined) return undefined;
+  if (p.ageYears > 0) return `${p.ageYears} Y`;
+  if (!p.dateOfBirth) return '< 1 Y';
+  const birth = new Date(`${p.dateOfBirth}T00:00:00Z`);
+  const months = (at.getUTCFullYear() - birth.getUTCFullYear()) * 12 + at.getUTCMonth() - birth.getUTCMonth() - (at.getUTCDate() < birth.getUTCDate() ? 1 : 0);
+  if (months >= 1) return `${months} M`;
+  return `${Math.max(0, Math.floor((at.getTime() - birth.getTime()) / 86_400_000))} D`;
+}
+
 let cachedLogo: Buffer | null | undefined;
 /** The bundled logo, already drawn as a full circle (whole logo inside). Read once; works from src (ts-node) and dist, and on Vercel via vercel.json includeFiles. */
 function bundledLogo(): Buffer | undefined {
@@ -82,7 +93,7 @@ export class ReportsService {
         patient: {
           name: patient.name,
           mrNumber: patient.mrNumber,
-          age: patient.ageYears !== undefined ? `${patient.ageYears} Y` : undefined,
+          age: ageText(patient),
           gender: patient.gender,
           ...(patient.guardianName ? { guardian: `${patient.guardianName}${patient.guardianRelation && patient.guardianRelation !== 'other' ? ` (${patient.guardianRelation})` : ''}` } : {}),
           mobile: patient.mobile,
