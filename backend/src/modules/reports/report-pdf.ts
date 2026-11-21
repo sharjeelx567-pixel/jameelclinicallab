@@ -220,7 +220,8 @@ export async function renderReportPdf(
       doc.restore().opacity(1);
     }
     let fy = doc.page.height - FOOTER_H;
-    doc.fillColor(COLORS.ink).font('Helvetica-Bold').fontSize(8.5).text('Electronically verified, no signature(s) required.', left, fy, { width, align: 'center', lineBreak: false });
+    doc.fillColor(COLORS.ink).font('Helvetica-Bold').fontSize(8.5).text('Electronically verified, no signature(s) required.', left, fy, { width: width / 2, lineBreak: false });
+    doc.text('Not valid for any court', left + width / 2, fy, { width: width / 2, align: 'right', lineBreak: false });
     fy += 12;
     doc.moveTo(left, fy).lineTo(left + width, fy).lineWidth(1.2).strokeColor(COLORS.line).stroke();
     const slot = width / staff.length;

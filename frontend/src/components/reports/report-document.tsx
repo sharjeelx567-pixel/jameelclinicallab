@@ -144,7 +144,10 @@ export function ReportDocument({
 
       {/* Footer pinned to the bottom of the page */}
       <footer className="print-avoid-break mt-auto pt-6 text-[9pt]">
-        <p className="border-b-2 border-slate-800 pb-0.5 text-center text-[9pt] font-semibold">Electronically verified, no signature(s) required.</p>
+        <p className="flex flex-wrap justify-between gap-x-4 border-b-2 border-slate-800 pb-0.5 text-[9pt] font-semibold">
+          <span>Electronically verified, no signature(s) required.</span>
+          <span className="font-bold">Not valid for any court</span>
+        </p>
         <div className="flex flex-wrap justify-between gap-x-6 gap-y-2 py-1.5">
           {staff.map((p) => (
             <div key={p.name} className="min-w-0 first:text-left last:text-right [&:not(:first-child):not(:last-child)]:text-center">
