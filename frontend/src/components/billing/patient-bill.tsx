@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Barcode } from '@/components/shared/codes';
+import { Barcode, QrCode } from '@/components/shared/codes';
 import { LabLogoMark } from '@/components/shared/lab-logo';
 import { amountInWords } from '@/lib/amount-words';
 import { formatDateTime, titleCase } from '@/lib/utils';
@@ -47,7 +47,7 @@ export function PatientBill({ inv }: { inv: InvoiceData }) {
       </header>
 
       {/* Barcodes */}
-      <section className="mt-3 grid grid-cols-2 border border-slate-800">
+      <section className={`mt-3 grid border border-slate-800 ${inv.order.accessCode ? 'grid-cols-[1fr_1fr_auto]' : 'grid-cols-2'}`}>
         <div className="flex flex-col items-center justify-center gap-0.5 border-r border-slate-800 px-3 py-2">
           <span className="text-[9pt] font-bold uppercase tracking-wide">Patient No. (MR)</span>
           {p && <Barcode value={p.mrNumber} height={30} width={1.25} fontSize={11} />}
@@ -56,6 +56,13 @@ export function PatientBill({ inv }: { inv: InvoiceData }) {
           <span className="text-[9pt] font-bold uppercase tracking-wide">Lab No.</span>
           <Barcode value={inv.order.orderNumber} height={30} width={1.25} fontSize={11} />
         </div>
+        {inv.order.accessCode && (
+          // Scanning opens this order's report online once it is ready and the bill is fully paid.
+          <div className="flex items-center gap-2 border-l border-slate-800 px-3 py-2">
+            <QrCode value={`${typeof window !== 'undefined' ? window.location.origin : ''}/r/${inv.order.accessCode}`} size={64} />
+            <span className="max-w-[24mm] text-[8pt] font-bold leading-tight">Scan to get your report online</span>
+          </div>
+        )}
       </section>
 
       {/* Patient and order details */}

@@ -124,6 +124,22 @@ export const resultsService = {
   amend: (id: string, reason: string) => api.post<Result>(`/results/${id}/amend`, { reason }),
 };
 
+/** What the public QR pages get back (no clinical data unless `access` is 'released'). */
+export type PublicReportResult = {
+  valid: boolean;
+  laboratory?: string;
+  reportNumber?: string;
+  version?: number;
+  status?: string;
+  generatedAt?: string;
+  patientInitials?: string;
+  mrNumberMasked?: string;
+  current?: boolean;
+  access?: 'released' | 'payment_pending' | 'superseded' | 'unavailable' | 'not_ready';
+  orderNumber?: string;
+  report?: Pick<Report, 'id' | 'reportNumber' | 'version' | 'status' | 'snapshot' | 'verificationCode' | 'generatedAt'>;
+};
+
 export const reportsService = {
   list: (q: { patientId?: string; orderId?: string; status?: string; limit?: number; cursor?: string } = {}) => api.get<Paginated<ReportListItem>>('/reports', q),
   get: (id: string) => api.get<Report>(`/reports/${id}`),
@@ -132,21 +148,11 @@ export const reportsService = {
   recordBrowserPrint: (id: string) => api.post<void>(`/reports/${id}/prints`),
   prints: (id: string) => api.get<Array<{ id: string; channel: string; by: { name: string }; at: string; copy: number }>>(`/reports/${id}/prints`),
   /** Public QR page: the full report only when the bill is fully paid (`access: 'released'`). */
-  verify: (code: string) =>
-    api.get<{
-      valid: boolean;
-      laboratory?: string;
-      reportNumber?: string;
-      version?: number;
-      status?: string;
-      generatedAt?: string;
-      patientInitials?: string;
-      mrNumberMasked?: string;
-      current?: boolean;
-      access?: 'released' | 'payment_pending' | 'superseded' | 'unavailable';
-      report?: Pick<Report, 'id' | 'reportNumber' | 'version' | 'status' | 'snapshot' | 'verificationCode' | 'generatedAt'>;
-    }>(`/reports/verify/${encodeURIComponent(code)}`),
+  verify: (code: string) => api.get<PublicReportResult>(`/reports/verify/${encodeURIComponent(code)}`),
   publicPdf: (code: string) => api.blob(`/reports/verify/${encodeURIComponent(code)}/pdf`),
+  /** QR on the bill: the order's current report (same rules as `verify`, or `access: 'not_ready'`). */
+  byOrderCode: (code: string) => api.get<PublicReportResult>(`/reports/access/${encodeURIComponent(code)}`),
+  publicPdfByOrderCode: (code: string) => api.blob(`/reports/access/${encodeURIComponent(code)}/pdf`),
 };
 
 /** One filled row of the normal-ranges spreadsheet (empty cells are sent as ''). */

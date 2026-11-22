@@ -241,6 +241,8 @@ export interface OrderDoc extends Timestamps {
   statusHistory: Array<{ status: OrderStatus; at: string; by: AuditActor; note?: string }>;
   cancellation?: { reason: string; at: string; by: AuditActor };
   homeSamplingRequestId?: string;
+  /** Random code in the QR on the bill: opens this order's current report (once fully paid). */
+  accessCode?: string;
   createdBy: AuditActor;
   searchTokens: string[];
 }

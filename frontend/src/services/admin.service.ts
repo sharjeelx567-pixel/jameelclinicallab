@@ -40,7 +40,7 @@ export const billingService = {
     api.get<{
       invoiceNumber: string;
       lab: { name: string; tagline: string; address: string; phone: string; email?: string; currency: string };
-      order: { id: string; orderNumber: string; createdAt: string; status: string; doctorName?: string; createdByName?: string };
+      order: { id: string; orderNumber: string; accessCode?: string; createdAt: string; status: string; doctorName?: string; createdByName?: string };
       patient: { name: string; mrNumber: string; mobile: string; ageYears?: number; gender: string; guardianName?: string; guardianRelation?: string; centre?: string } | null;
       lines: Array<{ testCode: string; testName: string; amount: number; reportDue?: string }>;
       billing: Billing;

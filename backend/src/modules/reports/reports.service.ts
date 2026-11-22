@@ -228,10 +228,47 @@ export class ReportsService {
    * balance due the page asks the patient to clear it at the laboratory first.
    */
   async verify(code: string) {
+    const r = await this.byVerificationCode(code);
+    return r ? this.present(r) : { valid: false as const };
+  }
+
+  /**
+   * QR on the BILL (printed before any report exists): finds the order by its access code
+   * and shows its current report with the same rules as the report QR.
+   */
+  async byOrderCode(code: string) {
+    const order = await this.orderByAccessCode(code);
+    if (!order) return { valid: false as const };
+    const r = await this.currentReport(order.id);
+    if (!r) return { valid: true as const, laboratory: (await this.settings.get()).name, access: 'not_ready' as const, orderNumber: order.orderNumber };
+    return this.present(r);
+  }
+
+  async publicPdfByOrderCode(code: string): Promise<{ buffer: Buffer; filename: string }> {
+    const order = await this.orderByAccessCode(code);
+    const r = order ? await this.currentReport(order.id) : undefined;
+    if (!r) throw notFound('Report');
+    return this.publicPdfFor(r);
+  }
+
+  private async byVerificationCode(code: string): Promise<ReportDoc | undefined> {
     const clean = code.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16);
-    const res = await this.store.query<ReportDoc>(C.reports, { where: [{ field: 'verificationCode', op: '==', value: clean }], limit: 1 });
-    const r = res.items[0];
-    if (!r) return { valid: false as const };
+    return (await this.store.query<ReportDoc>(C.reports, { where: [{ field: 'verificationCode', op: '==', value: clean }], limit: 1 })).items[0];
+  }
+
+  private async orderByAccessCode(code: string): Promise<OrderDoc | undefined> {
+    const clean = code.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16);
+    if (clean.length < 10) return undefined;
+    return (await this.store.query<OrderDoc>(C.orders, { where: [{ field: 'accessCode', op: '==', value: clean }], limit: 1 })).items[0];
+  }
+
+  /** Newest report of the order that has not been replaced. */
+  private async currentReport(orderId: string): Promise<ReportDoc | undefined> {
+    const all = (await this.store.query<ReportDoc>(C.reports, { where: [{ field: 'orderId', op: '==', value: orderId }] })).items;
+    return all.filter((r) => r.status !== 'superseded').sort((a, b) => b.version - a.version)[0];
+  }
+
+  private async present(r: ReportDoc) {
     const initials = r.snapshot.patient.name.split(/\s+/).map((w) => `${w[0]}.`).join(' ');
     const base = {
       valid: true as const,
@@ -252,9 +289,12 @@ export class ReportsService {
 
   /** PDF download from the public QR page: same rules as `verify`. */
   async publicPdf(code: string): Promise<{ buffer: Buffer; filename: string }> {
-    const clean = code.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16);
-    const r = (await this.store.query<ReportDoc>(C.reports, { where: [{ field: 'verificationCode', op: '==', value: clean }], limit: 1 })).items[0];
+    const r = await this.byVerificationCode(code);
     if (!r) throw notFound('Report');
+    return this.publicPdfFor(r);
+  }
+
+  private async publicPdfFor(r: ReportDoc): Promise<{ buffer: Buffer; filename: string }> {
     const access = await this.publicAccess(r);
     if (access === 'payment_pending') throw forbidden('Payment is pending. Please clear the balance at the laboratory to download this report.');
     if (access !== 'released') throw forbidden('This report is not available for download. Please contact the laboratory.');

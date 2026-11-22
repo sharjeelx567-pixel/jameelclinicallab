@@ -31,6 +31,7 @@ import {
   requiredText,
   reserveSequences,
   round2,
+  verificationCode,
   yearCode,
 } from '../../utils';
 import { AuditService } from '../audit-logs/audit.service';
@@ -262,6 +263,7 @@ export class OrdersService {
         homeSamplingRequestId: home?.id,
         createdBy: by,
         searchTokens: buildSearchTokens(orderNumber, patient.name, patient.mrNumber),
+        accessCode: verificationCode(12),
         createdAt: now,
         updatedAt: now,
       };

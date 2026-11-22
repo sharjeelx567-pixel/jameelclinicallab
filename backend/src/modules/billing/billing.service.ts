@@ -5,7 +5,7 @@ import { notFound, unprocessable } from '../../common/errors';
 import { AuthUser, toActor } from '../../common/types';
 import { getEnv } from '../../config/env';
 import { C, DataStore, WhereClause } from '../../database/data-store';
-import { isoDate, labDateKey, money, nextSequence, optionalText, pad, paginationQuery, requiredText, round2, yearCode } from '../../utils';
+import { isoDate, labDateKey, money, nextSequence, optionalText, pad, paginationQuery, requiredText, round2, verificationCode, yearCode } from '../../utils';
 import { AuditService } from '../audit-logs/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { SettingsService } from '../settings/settings.service';
@@ -175,6 +175,11 @@ export class BillingService {
   async invoice(orderId: string) {
     const order = await this.store.get<OrderDoc>(C.orders, orderId);
     if (!order) throw notFound('Order');
+    if (!order.accessCode) {
+      // Orders created before bill QR codes existed get their code the first time the bill is opened.
+      order.accessCode = verificationCode(12);
+      await this.store.update(C.orders, order.id, { accessCode: order.accessCode });
+    }
     const [patient, payments, settings, catalog] = await Promise.all([
       this.store.get<PatientDoc>(C.patients, order.patientId),
       this.store.query<PaymentDoc>(C.payments, { where: [{ field: 'orderId', op: '==', value: orderId }], orderBy: { field: 'recordedAt', direction: 'desc' } }),
@@ -187,7 +192,7 @@ export class BillingService {
     return {
       invoiceNumber: order.orderNumber.replace('ORD', 'INV'),
       lab: { name: settings.name, tagline: settings.tagline, address: settings.address, phone: settings.phone, email: settings.email, currency: settings.billing.currency },
-      order: { id: order.id, orderNumber: order.orderNumber, createdAt: order.createdAt, status: order.status, doctorName: order.doctorName, createdByName: order.createdBy?.name },
+      order: { id: order.id, orderNumber: order.orderNumber, accessCode: order.accessCode, createdAt: order.createdAt, status: order.status, doctorName: order.doctorName, createdByName: order.createdBy?.name },
       patient: patient && {
         name: patient.name, mrNumber: patient.mrNumber, mobile: patient.mobile, ageYears: patient.ageYears, gender: patient.gender,
         guardianName: patient.guardianName, guardianRelation: patient.guardianRelation, centre: centre ?? branch,

@@ -81,6 +81,7 @@ describe('complete laboratory workflow', () => {
   let order: { items: Array<{ testCode: string; resultId: string; sampleId: string }>; billing: { balance: number; total: number } };
   let reportId = '';
   let verificationCode = '';
+  let accessCode = '';
 
   it('configures prices and an approved fixture range (PATCH keeps other fields)', async () => {
     const cbc = await api().patch('/api/v1/tests/test-cbc').set(as(ADMIN)).send({ price: 1200 });
@@ -149,6 +150,8 @@ describe('complete laboratory workflow', () => {
     expect(res.status).toBe(201);
     order = res.body.data;
     orderId = res.body.data.id;
+    accessCode = res.body.data.accessCode;
+    expect(accessCode).toMatch(/^[A-Z2-9]{12}$/);
     expect(res.body.data.orderNumber).toMatch(/^ORD-/);
     expect(res.body.data.billing).toMatchObject({ subtotal: 1500, total: 1500, paid: 500, balance: 1000 });
     expect(res.body.data.status).toBe('sample_pending');
@@ -192,6 +195,12 @@ describe('complete laboratory workflow', () => {
     const ok = await api().put(`/api/v1/results/${cbc.resultId}/values`).set(as(ADMIN)).send({ values, submit: true });
     expect(ok.status).toBe(200);
     expect(ok.body.data.values.every((v: { flag: string }) => v.flag === 'no_range')).toBe(true); // no approved ranges → never invented
+  });
+
+  it('bill QR: before any report it says the report is not ready', async () => {
+    const res = await api().get(`/api/v1/reports/access/${accessCode}`);
+    expect(res.body.data).toMatchObject({ valid: true, access: 'not_ready' });
+    expect((await api().get('/api/v1/reports/access/NOTAREALCODE12')).body.data.valid).toBe(false);
   });
 
   it('refuses report generation from unverified results', async () => {
@@ -254,6 +263,10 @@ describe('complete laboratory workflow', () => {
     expect(res.body.data).toMatchObject({ valid: true, current: true, status: 'final', access: 'payment_pending' });
     expect(JSON.stringify(res.body.data)).not.toMatch(/450|Alpha|Glucose/);
     expect((await api().get(`/api/v1/reports/verify/${verificationCode}/pdf`)).status).toBe(403);
+    const bill = await api().get(`/api/v1/reports/access/${accessCode}`);
+    expect(bill.body.data).toMatchObject({ valid: true, access: 'payment_pending' });
+    expect(JSON.stringify(bill.body.data)).not.toMatch(/450|Alpha|Glucose/);
+    expect((await api().get(`/api/v1/reports/access/${accessCode}/pdf`)).status).toBe(403);
     expect((await api().get('/api/v1/reports/verify/NOTAREALCODE')).body.data.valid).toBe(false);
   });
 
@@ -275,6 +288,8 @@ describe('complete laboratory workflow', () => {
     expect(res.body.data).toMatchObject({ valid: true, access: 'released' });
     expect(res.body.data.report.snapshot.tests.length).toBeGreaterThan(0);
     expect(res.body.data.report).not.toHaveProperty('generatedBy');
+    const bill = await api().get(`/api/v1/reports/access/${accessCode}`);
+    expect(bill.body.data).toMatchObject({ access: 'released', reportNumber: res.body.data.reportNumber });
     const pdf = await api().get(`/api/v1/reports/verify/${verificationCode}/pdf`).buffer(true).parse((r, cb) => {
       const chunks: Buffer[] = [];
       r.on('data', (c: Buffer) => chunks.push(c));

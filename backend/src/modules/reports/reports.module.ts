@@ -29,6 +29,22 @@ export class ReportsController {
     return new StreamableFile(buffer, { type: 'application/pdf', disposition: `attachment; filename="${filename}"` });
   }
 
+  /** QR on the bill: the order's current report, same rules (full report only when fully paid). */
+  @Public()
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @Get('access/:code')
+  byOrderCode(@Param('code') code: string) {
+    return this.reports.byOrderCode(code);
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Get('access/:code/pdf')
+  async publicPdfByOrderCode(@Param('code') code: string) {
+    const { buffer, filename } = await this.reports.publicPdfByOrderCode(code);
+    return new StreamableFile(buffer, { type: 'application/pdf', disposition: `attachment; filename="${filename}"` });
+  }
+
   @Get()
   @RequirePermissions('reports.read')
   list(
