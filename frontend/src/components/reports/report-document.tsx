@@ -5,8 +5,16 @@ import { FLAG_META } from '@/constants';
 import { cn, formatDateTime, titleCase } from '@/lib/utils';
 import type { Report, ReportSignatory } from '@/types';
 
-/** Parameter names as written; a name typed in ALL CAPITALS is shown as "Each Word Capitalised". */
-const niceName = (s: string) => (s.length > 3 && s === s.toUpperCase() && /[A-Z]/.test(s) ? s.toLowerCase().replace(/(^|[\s(/-])([a-z])/g, (_m, p: string, c: string) => p + c.toUpperCase()) : s);
+/** Lab abbreviations kept in capitals when a name typed in ALL CAPS is changed to normal case. */
+const ABBREVIATIONS = new Set(['ESR', 'HIV', 'HCV', 'HBV', 'HBSAG', 'HAV', 'HEV', 'ALT', 'AST', 'ALP', 'GGT', 'HDL', 'LDL', 'VLDL', 'TSH', 'FT3', 'FT4', 'PCV', 'HCT', 'MPV', 'PDW', 'PCT', 'RDW', 'NRBC', 'CRP', 'ASO', 'RA', 'INR', 'PT', 'APTT', 'LFT', 'RFT', 'ANA', 'IGG', 'IGM', 'IGE', 'ABO', 'RH', 'BUN', 'AFB', 'HPF', 'LPF', 'RBC', 'RBCS', 'WBC', 'WBCS', 'TLC', 'DLC', 'PSA', 'CEA', 'AFP', 'LH', 'FSH', 'HCG', 'ICT', 'CBC', 'CSF', 'PH', 'SGPT', 'SGOT', 'CPK', 'LDH', 'TIBC', 'UIBC', 'G6PD', 'HB', 'HBA1C', 'MCV', 'MCH', 'MCHC', 'VDRL', 'TPHA', 'ELISA', 'PCR', 'DNA', 'RNA', 'TB', 'CV', 'SD', 'RDW-CV', 'RDW-SD']);
+/**
+ * Parameter names as written; a name typed in ALL CAPITALS is shown as "Each Word Capitalised",
+ * except lab abbreviations (MCHC, VDRL, HBsAg-style codes, anything with a digit or no vowel).
+ */
+const niceName = (s: string) =>
+  s.length > 3 && s === s.toUpperCase() && /[A-Z]/.test(s)
+    ? s.replace(/[A-Z0-9]+/g, (w) => (ABBREVIATIONS.has(w) || /\d/.test(w) || !/[AEIOU]/.test(w) ? w : w[0] + w.slice(1).toLowerCase()))
+    : s;
 
 const DEFAULT_PROVISO =
   'This report relates only to the sample(s) received. Results should be interpreted by a qualified clinician in the clinical context.';
