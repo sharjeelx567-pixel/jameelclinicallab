@@ -14,18 +14,18 @@ const points = [
 
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative grid min-h-dvh lg:grid-cols-[1.1fr_1fr]">
+    <div className="relative grid min-h-dvh lg:h-dvh lg:grid-cols-[1.1fr_1fr] lg:overflow-hidden">
       <AnimatedBackground variant="auth" />
 
-      <aside className="relative hidden flex-col overflow-hidden p-10 lg:flex">
+      <aside className="relative hidden min-h-0 flex-col overflow-hidden px-10 py-7 lg:flex">
         <Logo className="relative" />
         <div className="relative my-auto">
-          <div className="relative mx-auto max-w-lg">
+          <div className="relative mx-auto w-full max-w-sm [@media(max-height:760px)]:max-w-[16rem]">
             {themeConfig.loginImage ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={themeConfig.loginImage} alt="Clinical laboratory" className="aspect-[4/3] w-full rounded-3xl object-cover shadow-elevated" />
             ) : (
-              <div className="glass rounded-[2rem] p-8">
+              <div className="glass rounded-3xl p-5">
                 <LabHeroIllustration />
               </div>
             )}
@@ -39,18 +39,18 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
               Sample → result → report
             </div>
           </div>
-          <h2 className="mx-auto mt-10 max-w-lg font-display text-3xl font-bold leading-tight xl:text-4xl">
+          <h2 className="mx-auto mt-6 max-w-sm font-display text-2xl font-bold leading-tight [@media(max-height:760px)]:mt-4 [@media(max-height:760px)]:text-xl">
             <span className="text-gradient">{BRAND.tagline}</span>
           </h2>
-          <ul className="mx-auto mt-6 grid max-w-lg gap-4">
+          <ul className="mx-auto mt-4 grid max-w-sm gap-3 [@media(max-height:760px)]:mt-3 [@media(max-height:760px)]:gap-2">
             {points.map((p) => (
               <li key={p.title} className="flex gap-3">
-                <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary/15 text-primary ring-1 ring-primary/25">
+                <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary/15 text-primary ring-1 ring-primary/25">
                   <p.icon className="size-4" aria-hidden />
                 </span>
                 <span>
                   <span className="block text-sm font-semibold">{p.title}</span>
-                  <span className="block text-sm text-muted-foreground">{p.text}</span>
+                  <span className="block text-xs text-muted-foreground">{p.text}</span>
                 </span>
               </li>
             ))}
@@ -60,12 +60,12 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
       </aside>
 
       <main className="relative flex min-w-0 flex-col">
-        <div className="flex items-center justify-between p-4 sm:p-6">
+        <div className="flex items-center justify-between p-4">
           <Logo className="lg:invisible" />
           <ThemeToggle />
         </div>
-        <div className="flex flex-1 items-center justify-center px-4 pb-12 sm:px-6">
-          <div className="glass w-full max-w-md rounded-3xl p-6 shadow-elevated animate-in fade-in-0 slide-in-from-bottom-4 duration-500 sm:p-8">{children}</div>
+        <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-4 pb-8 sm:px-6">
+          <div className="glass w-full max-w-[360px] rounded-2xl p-6 shadow-elevated animate-in fade-in-0 slide-in-from-bottom-4 duration-500">{children}</div>
         </div>
       </main>
     </div>

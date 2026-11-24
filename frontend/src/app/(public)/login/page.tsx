@@ -89,9 +89,9 @@ function LoginForm() {
 
   return (
     <div>
-      <h1 className="font-display text-2xl font-semibold">Staff sign in</h1>
+      <h1 className="font-display text-xl font-semibold">Staff sign in</h1>
       <p className="mt-1 text-sm text-muted-foreground">Authorised laboratory personnel only.</p>
-      <div className="mt-8">
+      <div className="mt-5">
         {AUTH_MODE === 'dev' ? (
           <DevLogin onDone={() => router.replace(next)} />
         ) : !firebaseConfigured() ? (
@@ -134,7 +134,7 @@ function LoginForm() {
           </form>
         )}
       </div>
-      <p className="mt-10 text-center text-xs text-muted-foreground">There is no public sign-up. Accounts are created by the laboratory administrator.</p>
+      <p className="mt-6 text-center text-xs text-muted-foreground">There is no public sign-up. Accounts are created by the laboratory administrator.</p>
     </div>
   );
 }
