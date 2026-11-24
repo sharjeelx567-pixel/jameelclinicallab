@@ -1,47 +1,26 @@
 import { cn } from '@/lib/utils';
 import { RoundLogo } from './round-logo';
 
-const RING =
-  '[background:conic-gradient(from_0deg,hsl(var(--brand-1)),hsl(var(--brand-2)),hsl(var(--highlight)),transparent_70%,hsl(var(--brand-1)))]';
-
 /**
- * The brand spinner: round lab logo floating inside a spinning gradient ring, a
- * counter-rotating dashed ring, orbiting "cells" and a soft glow. Scales with `size` (px).
- * Animations stop automatically for users who prefer reduced motion.
+ * The brand mark on loading screens: the round lab logo in a thin brand ring. Scales with `size` (px).
  */
 export function BrandSpinner({ size = 176, className }: { size?: number; className?: string }) {
-  const ring = Math.max(2, Math.round(size / 60));
-  const dots = [
-    { cls: 'loader-orbit-1', d: size * 0.07, color: 'hsl(var(--highlight))' },
-    { cls: 'loader-orbit-2', d: size * 0.058, color: 'hsl(var(--brand-2))' },
-    { cls: 'loader-orbit-3', d: size * 0.045, color: '#f87171' },
-  ];
+  // Static on purpose: spinning rings, orbiting dots and blur glows slowed down older PCs.
   return (
     <div className={cn('relative shrink-0', className)} style={{ width: size, height: size }} aria-hidden>
-      <div className="loader-pulse absolute inset-[5%] rounded-full bg-[radial-gradient(circle,hsl(var(--primary)/0.45),transparent_70%)] blur-xl" />
-      <div
-        className={cn('loader-spin absolute inset-0 rounded-full', RING)}
-        style={{ mask: `radial-gradient(farthest-side, transparent calc(100% - ${ring + 1}px), #000 calc(100% - ${ring}px))`, WebkitMask: `radial-gradient(farthest-side, transparent calc(100% - ${ring + 1}px), #000 calc(100% - ${ring}px))` }}
-      />
-      <div className="loader-spin-rev absolute inset-[7%] rounded-full border-dashed border-primary/40" style={{ borderWidth: Math.max(1, ring - 1) }} />
-      {dots.map((o) => (
-        <div key={o.cls} className={cn('absolute inset-0', o.cls)}>
-          <span className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ width: o.d, height: o.d, background: o.color, boxShadow: `0 0 ${o.d * 1.5}px ${o.color}` }} />
-        </div>
-      ))}
-      <div className="loader-float absolute inset-[14%]">
-        <RoundLogo className="size-full shadow-xl ring-2 ring-white/70" alt="" />
+      <div className="absolute inset-[6%] rounded-full bg-gradient-to-br from-primary to-highlight p-[3px]">
+        <RoundLogo className="size-full" alt="" />
       </div>
     </div>
   );
 }
 
-/** Lab name with a moving shimmer. */
+/** Lab name. */
 function BrandTitle({ small }: { small?: boolean }) {
   return (
     <p
       className={cn(
-        'loader-shimmer bg-[linear-gradient(90deg,hsl(var(--foreground))_0%,hsl(var(--primary))_45%,hsl(var(--highlight))_55%,hsl(var(--foreground))_100%)] bg-[length:250%_100%] bg-clip-text text-center font-display font-extrabold text-transparent',
+        'text-center font-display font-extrabold text-foreground',
         small ? 'text-sm tracking-[0.16em]' : 'text-lg tracking-[0.18em]',
       )}
     >
@@ -70,7 +49,7 @@ export function BrandLoader({ label = 'Loading…', size = 'screen', fullScreen,
     return (
       <div className={cn('flex flex-col items-center justify-center gap-3 py-8', className)} role="status" aria-live="polite" aria-busy>
         <BrandSpinner size={72} />
-        <span className="loader-shimmer bg-[linear-gradient(90deg,hsl(var(--muted-foreground))_0%,hsl(var(--primary))_50%,hsl(var(--muted-foreground))_100%)] bg-[length:250%_100%] bg-clip-text text-xs font-medium text-transparent">{label}</span>
+        <span className="text-xs font-medium text-muted-foreground">{label}</span>
       </div>
     );
   }
