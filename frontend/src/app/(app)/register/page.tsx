@@ -53,7 +53,7 @@ export default function RegisterAndBillPage() {
   const [query, setQuery] = React.useState('');
   const [department, setDepartment] = React.useState('');
   // Doctor: pick from the list or type any name (a doctor not in the list is printed as typed).
-  const [doctorText, setDoctorText] = React.useState('');
+  const [doctorText, setDoctorText] = React.useState('Self');
   const doctorLabel = (d: { name: string; clinic?: string }) => `${d.name}${d.clinic ? ` — ${d.clinic}` : ''}`;
   const typed = doctorText.trim();
   const pickedDoctor = typed && !/^self$/i.test(typed) ? doctors.data?.items.find((d) => doctorLabel(d).toLowerCase() === typed.toLowerCase() || d.name.toLowerCase() === typed.toLowerCase()) : undefined;
@@ -255,13 +255,14 @@ export default function RegisterAndBillPage() {
                 </form>
               )}
               <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field label="Advised by (doctor)" htmlFor="r-doc" hint="Empty = Self. Saved doctors appear as you type; a new name is saved automatically.">
+                <Field label="Advised by (doctor)" htmlFor="r-doc" hint="Self by default. Referred by a doctor? Type the name — saved doctors are suggested, a new name is saved automatically.">
                   <SuggestInput
                     id="r-doc"
                     value={doctorText}
                     onChange={setDoctorText}
-                    suggestions={doctors.data?.items.map(doctorLabel) ?? []}
+                    suggestions={['Self', ...(doctors.data?.items.map(doctorLabel) ?? [])]}
                     placeholder="Self — or type a doctor's name"
+                    selectAllOnFocus={/^self$/i.test(doctorText.trim())}
                     maxLength={80}
                     emptyHint="New name: it will be saved to Doctors and suggested next time."
                   />

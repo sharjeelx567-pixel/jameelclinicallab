@@ -39,7 +39,9 @@ export function ReportDocument({
 }) {
   const s = { ...report.snapshot, lab: { ...report.snapshot.lab, phone: report.snapshot.lab.phone || current?.phone || '', address: report.snapshot.lab.address || current?.address || '' } };
   const watermark = report.status === 'interim' || report.status === 'superseded';
-  const tests = [...s.tests].sort((a, b) => a.category.localeCompare(b.category));
+  // Haematology always comes first on the report, then the other departments A–Z.
+  const deptRank = (c: string) => (/^ha?ematology/i.test(c.trim()) ? 0 : 1);
+  const tests = [...s.tests].sort((a, b) => deptRank(a.category) - deptRank(b.category) || a.category.localeCompare(b.category));
   // Footer names: as set in Settings; otherwise the people on record (approver, then the technologist who entered results).
   const staff: Array<{ name: string; qualification?: string }> = s.lab.signatories?.length
     ? s.lab.signatories

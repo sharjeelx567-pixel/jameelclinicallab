@@ -17,6 +17,7 @@ export function SuggestInput({
   placeholder,
   maxLength,
   emptyHint,
+  selectAllOnFocus,
 }: {
   id: string;
   value: string;
@@ -25,6 +26,8 @@ export function SuggestInput({
   placeholder?: string;
   maxLength?: number;
   emptyHint?: string;
+  /** Select the current text on focus, so typing replaces it (e.g. the default "Self"). */
+  selectAllOnFocus?: boolean;
 }) {
   const [open, setOpen] = React.useState(false);
   const [active, setActive] = React.useState(0);
@@ -55,7 +58,10 @@ export function SuggestInput({
         role="combobox"
         aria-expanded={show}
         aria-controls={`${id}-list`}
-        onFocus={() => setOpen(true)}
+        onFocus={(e) => {
+          setOpen(true);
+          if (selectAllOnFocus) e.currentTarget.select();
+        }}
         onBlur={() => setOpen(false)}
         onChange={(e) => {
           onChange(e.target.value);

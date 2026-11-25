@@ -151,7 +151,9 @@ export async function renderReportPdf(
 
   header();
 
-  const tests = [...s.tests].sort((a, b) => a.category.localeCompare(b.category));
+  // Haematology always comes first on the report, then the other departments A–Z.
+  const deptRank = (c: string) => (/^ha?ematology/i.test(c.trim()) ? 0 : 1);
+  const tests = [...s.tests].sort((a, b) => deptRank(a.category) - deptRank(b.category) || a.category.localeCompare(b.category));
   for (const t of tests) {
     if (t.category !== department) {
       department = t.category;
